@@ -18,15 +18,17 @@
         "decorations": false,
         "transparent": true,
         "resizable": true,
-        "minWidth": 1024,
-        "minHeight": 640
+        "minWidth": 640,
+        "minHeight": 400
       }
     ],
     "security": {
       "csp": null,
       "assetProtocol": {
         "enable": true,
-        "scope": ["**"]
+        "scope": [
+          "**"
+        ]
       }
     }
   },

@@ -1,7 +1,5 @@
 import { useEffect, useRef } from "react";
 import { useVideoStore } from "../store/videoStore";
-import { useSettingsStore } from "../store/settingsStore";
-import { usePlaylistStore } from "../store/playlistStore";
 
 interface UseVideoHotkeysProps {
   videoRef: React.RefObject<HTMLVideoElement | null>;
@@ -37,10 +35,8 @@ export function useVideoHotkeys({ videoRef, playerWrapperRef }: UseVideoHotkeysP
       ) {
         return;
       }
-      if (!videoRef.current) return;
 
-      const state = useVideoStore.getState();
-
+      // --- Fullscreen Toggle (Player container level) ---
       if (e.key === "Enter") {
         e.preventDefault();
         if (!document.fullscreenElement) {
@@ -56,6 +52,11 @@ export function useVideoHotkeys({ videoRef, playerWrapperRef }: UseVideoHotkeysP
         document.exitFullscreen().catch(console.error);
         return;
       }
+
+      // --- 2. Video Playback Shortcuts (Require mounted <video>) ---
+      if (!videoRef.current) return;
+
+      const state = useVideoStore.getState();
 
       if (e.code === "Space") {
         e.preventDefault();
@@ -101,18 +102,6 @@ export function useVideoHotkeys({ videoRef, playerWrapperRef }: UseVideoHotkeysP
         } else {
           state.setPlaybackRate(state.previousPlaybackRate);
         }
-        return;
-      }
-
-      if ((e.key === "i" || e.key === "I") && !e.repeat) {
-        e.preventDefault();
-        useSettingsStore.getState().toggleImmersive();
-        return;
-      }
-
-      if ((e.key === "p" || e.key === "P") && !e.repeat) {
-        e.preventDefault();
-        usePlaylistStore.getState().toggleSidebar();
         return;
       }
 
