@@ -11,15 +11,15 @@ function App() {
 
       {/* Main Content Area - padded top to account for absolute TitleBar */}
       <div className="flex flex-1 w-full h-full pt-[48px] overflow-hidden relative rounded-lg bg-[#0f0f0f] shadow-2xl ring-1 ring-white/10">
-        {/* Left Collapsible Playlist Sidebar */}
-        <PlaylistSidebar />
-
         {/* Main Player Area */}
         <main className="flex-1 relative overflow-hidden bg-black flex">
           <div className="w-full h-full flex">
             <VideoPlayer />
           </div>
         </main>
+
+        {/* Right Collapsible Playlist Sidebar */}
+        <PlaylistSidebar />
       </div>
     </div>
   );

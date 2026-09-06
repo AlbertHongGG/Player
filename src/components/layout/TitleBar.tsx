@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { WebviewWindow, getAllWebviewWindows } from "@tauri-apps/api/webviewWindow";
-import { Minus, Square, X, Maximize, Settings, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Minus, Square, X, Maximize, Settings, PanelRightClose, PanelRightOpen } from "lucide-react";
 import { Tooltip } from "../ui/Tooltip";
 import { usePlaylistStore } from "../../store/playlistStore";
 import { useNotifyStore } from "../../store/notifyStore";
@@ -88,7 +88,7 @@ export const TitleBar: React.FC = () => {
                   : "text-gray-400 hover:text-white hover:bg-white/10"
               }`}
             >
-              {isSidebarOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
+              {isSidebarOpen ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
             </button>
           </Tooltip>
         </div>

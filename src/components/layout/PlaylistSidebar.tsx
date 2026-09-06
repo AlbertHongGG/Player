@@ -6,7 +6,6 @@ import {
   Loader2,
   Film,
   Calendar,
-  RotateCw,
   Clipboard,
 } from "lucide-react";
 import { usePlaylistStore } from "../../store/playlistStore";
@@ -116,19 +115,22 @@ export const PlaylistSidebar: React.FC = () => {
           animate={{ width: 340, opacity: 1 }}
           exit={{ width: 0, opacity: 0 }}
           transition={{ duration: 0.3, ease: "easeInOut" }}
-          className="h-full bg-[#121212] border-r border-white/10 flex flex-col overflow-hidden shrink-0 z-20 select-none"
+          className="h-full bg-[#121212] border-l border-white/10 flex flex-col overflow-hidden shrink-0 z-20 select-none"
         >
           {/* Header & URL Input */}
           <div className="p-4 border-b border-white/5 space-y-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Film size={16} className="text-[#facc15]" />
-                <span className="text-xs font-bold uppercase tracking-wider text-gray-200">
-                  Anime Playlist
+              <div className="flex items-center gap-2 overflow-hidden mr-2">
+                <Film size={16} className="text-[#facc15] shrink-0" />
+                <span
+                  className="text-xs font-bold uppercase tracking-wider text-gray-200 truncate"
+                  title={playlist?.title || "Anime Playlist"}
+                >
+                  {playlist ? playlist.title : "Anime Playlist"}
                 </span>
               </div>
               {playlist && (
-                <span className="text-[11px] font-mono font-medium px-2 py-0.5 rounded-full bg-[#facc15]/10 text-[#facc15] border border-[#facc15]/20">
+                <span className="text-[11px] font-mono font-medium px-2 py-0.5 rounded-full bg-[#facc15]/10 text-[#facc15] border border-[#facc15]/20 shrink-0">
                   {playlist.episodes.length} EPS
                 </span>
               )}
@@ -174,28 +176,10 @@ export const PlaylistSidebar: React.FC = () => {
             </div>
           </div>
 
-          {/* Playlist Info & Episode List */}
+          {/* Episode List */}
           <div className="flex-1 overflow-hidden flex flex-col">
             {playlist ? (
-              <>
-                <div className="px-4 py-2.5 bg-black/20 border-b border-white/5 flex items-center justify-between">
-                  <h3
-                    className="text-xs font-semibold text-gray-300 truncate pr-2"
-                    title={playlist.title}
-                  >
-                    {playlist.title}
-                  </h3>
-                  <button
-                    onClick={handleParse}
-                    disabled={isParsing}
-                    className="text-gray-400 hover:text-[#facc15] transition-colors p-1 cursor-pointer"
-                    title="Reload"
-                  >
-                    <RotateCw size={12} className={isParsing ? "animate-spin" : ""} />
-                  </button>
-                </div>
-
-                <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-1.5">
+              <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-1.5">
                   {playlist.episodes.map((ep, idx) => {
                     const isSelected = selectedEpisodeId === ep.id;
                     return (
@@ -244,7 +228,6 @@ export const PlaylistSidebar: React.FC = () => {
                     );
                   })}
                 </div>
-              </>
             ) : (
               <div
                 onClick={handleFocusInput}
