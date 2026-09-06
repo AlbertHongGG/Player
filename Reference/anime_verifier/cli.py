@@ -23,8 +23,7 @@ if sys.platform == "win32":
         pass
 
 from anime_verifier.fetchers import get_fetcher
-
-from anime_verifier.parser import parse_anime_page
+from anime_verifier.recorder import ExecutionRecorder
 from anime_verifier.service import AnimeVerificationService
 
 app = typer.Typer(
@@ -42,17 +41,20 @@ def verify_command(
     fetcher: str = typer.Option("auto", "--fetcher", "-f", help="Fetcher strategy: auto, http, or browser"),
     limit: Optional[int] = typer.Option(None, "--limit", "-l", help="Limit number of articles to verify"),
     headless: bool = typer.Option(True, "--headless/--no-headless", help="Run browser in headless mode"),
-    json_output: bool = typer.Option(False, "--json", "-j", help="Output results in JSON format"),
+    output_dir: str = typer.Option("output", "--output-dir", "-o", help="Directory to save execution JSON log"),
+    no_record: bool = typer.Option(False, "--no-record", help="Skip saving execution JSON log"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="Output results in JSON format to stdout"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Display verbose diagnostic details"),
 ) -> None:
-    """Extracts episode payloads, calls v.anime1.me/api, and validates video stream accessibility."""
+    """Extracts episode payloads, calls v.anime1.me/api, validates video stream, and saves execution log."""
     if not json_output:
         console.print(
             Panel.fit(
                 f"[bold cyan]Anime1.me Video Workflow Verifier[/bold cyan]\n"
                 f"[yellow]Target URL:[/yellow] {url}\n"
                 f"[yellow]Fetcher Mode:[/yellow] [bold green]{fetcher}[/bold green] | "
-                f"[yellow]Limit:[/yellow] {limit or 'All'}",
+                f"[yellow]Limit:[/yellow] {limit or 'All'}\n"
+                f"[yellow]Log Output Dir:[/yellow] [magenta]{output_dir}[/magenta] (Auto-Save: {'Off' if no_record else 'On'})",
                 box=box.ROUNDED,
             )
         )
@@ -91,9 +93,21 @@ def verify_command(
             reports.append(rep)
             progress.advance(verify_task)
 
+    # Build canonical execution record
+    run_record = service.build_execution_run_record(
+        url=url,
+        fetcher_mode=fetcher,
+        reports=reports,
+    )
+
+    # Save to output/yyyymmdd_hhmmss_verifier.json if enabled
+    saved_log_path = None
+    if not no_record:
+        recorder = ExecutionRecorder(output_dir=output_dir)
+        saved_log_path = recorder.save_run_record(run_record)
+
     if json_output:
-        dump_data = [rep.model_dump(mode="json") for rep in reports]
-        console.print_json(json.dumps(dump_data, ensure_ascii=False, indent=2))
+        console.print_json(run_record.model_dump_json(indent=2))
         return
 
     # Render Rich Table
@@ -168,6 +182,10 @@ def verify_command(
             if verbose:
                 console.print(f"\n[bold underline cyan]Detail: {art.title} (Player #{pr.player_index})[/bold underline cyan]")
                 console.print(f"  [yellow]Raw Payload:[/yellow] {pr.payload.model_dump_json()}")
+                if pr.api_exchange:
+                    console.print(f"  [yellow]API Endpoint:[/yellow] {pr.api_exchange.request.endpoint}")
+                    console.print(f"  [yellow]API Form Payload:[/yellow] {pr.api_exchange.request.form_payload}")
+                    console.print(f"  [yellow]API Response Status:[/yellow] {pr.api_exchange.response.status_code}")
                 if pr.cookies:
                     console.print(f"  [yellow]Auth Cookies:[/yellow] {pr.cookies.to_cookie_header()}")
                 if pr.stream_result:
@@ -178,11 +196,17 @@ def verify_command(
     console.print(table)
 
     # Summary Panel
+    summary_text = (
+        f"[bold]Total Articles Checked:[/bold] {len(reports)} | "
+        f"[bold green]Streams Verified:[/bold green] {success_count} | "
+        f"[bold red]Failed:[/bold red] {fail_count}"
+    )
+    if saved_log_path:
+        summary_text += f"\n[bold green]✔ Execution log saved to:[/bold green] [cyan]{saved_log_path}[/cyan]"
+
     console.print(
         Panel.fit(
-            f"[bold]Total Articles Checked:[/bold] {len(reports)} | "
-            f"[bold green]Streams Verified:[/bold green] {success_count} | "
-            f"[bold red]Failed:[/bold red] {fail_count}",
+            summary_text,
             box=box.ROUNDED,
             border_style="green" if fail_count == 0 else "yellow",
         )
@@ -231,6 +255,28 @@ def parse_command(
             str(len(art.players)),
             first_payload,
         )
+
+    console.print(table)
+
+
+@app.command(name="records")
+def records_command(
+    output_dir: str = typer.Option("output", "--output-dir", "-o", help="Directory containing execution JSON logs"),
+) -> None:
+    """Lists past execution record JSON files in the output directory."""
+    recorder = ExecutionRecorder(output_dir=output_dir)
+    files = recorder.list_records()
+    if not files:
+        console.print(f"[yellow]No execution records found in: {output_dir}[/yellow]")
+        return
+
+    table = Table(title=f"[bold cyan]Past Verification Records ({output_dir})[/bold cyan]", box=box.ROUNDED)
+    table.add_column("Filename", style="bold green")
+    table.add_column("Size (Bytes)", justify="right")
+    table.add_column("Path", style="dim")
+
+    for f in files:
+        table.add_row(f.name, str(f.stat().st_size), str(f.resolve()))
 
     console.print(table)
 

@@ -1,13 +1,14 @@
 """Domain models for Anime1 Verifier.
 
-Encapsulates all domain entities, value objects, and serialization logic
-with strict Pydantic V2 validation.
+Encapsulates all domain entities, value objects, API transaction records,
+and serialization logic with strict Pydantic V2 validation.
 """
 
 from __future__ import annotations
 
 import json
 from datetime import datetime
+from typing import Any
 from urllib.parse import unquote
 from pydantic import BaseModel, Field, field_validator
 
@@ -102,7 +103,6 @@ class SessionCookies(BaseModel):
         """Parses a list of Set-Cookie header strings."""
         raw: dict[str, str] = {}
         for header in set_cookie_headers:
-            # Set-Cookie: key=val; expires=...; path=...
             parts = header.split(";")
             if parts:
                 cookie_pair = parts[0].strip()
@@ -135,19 +135,119 @@ class StreamVerificationResult(BaseModel):
     latency_ms: float = 0.0
 
 
-class PlayerVerificationReport(BaseModel):
-    """Complete verification report for a single player within an article."""
+# --- Detailed API Transaction & Logging Models ---
+
+
+class ApiRequestRecord(BaseModel):
+    """Audit record of the HTTP request dispatched to the backend API."""
+
+    endpoint: str = Field(description="Target API URL, e.g. https://v.anime1.me/api")
+    method: str = Field(default="POST", description="HTTP Method")
+    headers: dict[str, str] = Field(description="Request headers sent")
+    form_payload: dict[str, str] = Field(description="Form data payload sent (e.g. {'d': '...'})")
+
+
+class ApiResponseRecord(BaseModel):
+    """Audit record of the HTTP response received from the backend API."""
+
+    status_code: int = Field(description="HTTP Status code (e.g. 200)")
+    headers: dict[str, str] = Field(default_factory=dict, description="Response headers")
+    body: Any = Field(default=None, description="Parsed JSON response body")
+    cookies: dict[str, str] = Field(default_factory=dict, description="Cookies extracted from Set-Cookie")
+
+
+class ApiExchangeRecord(BaseModel):
+    """Complete record of an API request/response exchange."""
+
+    request: ApiRequestRecord
+    response: ApiResponseRecord
+    sources: list[VideoSource] = Field(default_factory=list)
+    session_cookies: SessionCookies | None = None
+
+
+class PlayerRecord(BaseModel):
+    """Complete audit record for a single player in an episode."""
 
     player_index: int
-    payload: ApiRequestPayload
+    container_id: str | None = None
+    data_apireq: ApiRequestPayload = Field(
+        description="Parsed data-apireq rendered directly as native JSON object"
+    )
+    api_request: ApiRequestRecord | None = None
+    api_response: ApiResponseRecord | None = None
+    stream_verification: StreamVerificationResult | None = None
+
+
+class ArticleRecord(BaseModel):
+    """Complete audit record for an article / episode."""
+
+    post_id: str
+    title: str
+    updated_at: datetime | None = None
+    article_url: str | None = None
+    players: list[PlayerRecord] = Field(default_factory=list)
+
+
+class ExecutionMetadata(BaseModel):
+    """Metadata describing a verification execution run."""
+
+    execution_timestamp: datetime
+    target_url: str
+    fetcher_mode: str
+    total_articles: int
+    total_players: int
+    verified_streams: int
+    failed_streams: int
+
+
+class ExecutionRunRecord(BaseModel):
+    """Top-level record saved to output/yyyymmdd_hhmmss_verifier.json."""
+
+    metadata: ExecutionMetadata
+    articles: list[ArticleRecord] = Field(default_factory=list)
+
+
+# --- Backward-compatible runtime report classes ---
+
+
+class PlayerVerificationReport(BaseModel):
+    """Runtime report for a single player within an article."""
+
+    player_index: int
+    container_id: str | None = None
+    data_apireq: ApiRequestPayload
     sources: list[VideoSource] = Field(default_factory=list)
     cookies: SessionCookies | None = None
+    api_exchange: ApiExchangeRecord | None = None
     stream_result: StreamVerificationResult | None = None
+
+    @property
+    def payload(self) -> ApiRequestPayload:
+        return self.data_apireq
+
+    def to_player_record(self) -> PlayerRecord:
+        return PlayerRecord(
+            player_index=self.player_index,
+            container_id=self.container_id,
+            data_apireq=self.data_apireq,
+            api_request=self.api_exchange.request if self.api_exchange else None,
+            api_response=self.api_exchange.response if self.api_exchange else None,
+            stream_verification=self.stream_result,
+        )
 
 
 class EpisodeVerificationReport(BaseModel):
-    """Complete report for an article/episode."""
+    """Runtime report for an article/episode."""
 
     article: EpisodeArticle
     player_reports: list[PlayerVerificationReport] = Field(default_factory=list)
     is_fully_verified: bool = False
+
+    def to_article_record(self) -> ArticleRecord:
+        return ArticleRecord(
+            post_id=self.article.post_id,
+            title=self.article.title,
+            updated_at=self.article.published_at,
+            article_url=self.article.article_url,
+            players=[pr.to_player_record() for pr in self.player_reports],
+        )

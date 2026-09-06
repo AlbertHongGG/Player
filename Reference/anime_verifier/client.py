@@ -6,7 +6,10 @@ import logging
 import httpx
 
 from anime_verifier.models import (
+    ApiExchangeRecord,
     ApiRequestPayload,
+    ApiRequestRecord,
+    ApiResponseRecord,
     SessionCookies,
     VideoSource,
 )
@@ -29,20 +32,17 @@ class AnimeApiClient:
         self.endpoint = endpoint
         self.timeout = timeout
 
-    def request_video_sources(
-        self,
-        payload: ApiRequestPayload,
-    ) -> tuple[list[VideoSource], SessionCookies]:
-        """Sends POST request to /api with payload and extracts stream sources & cookies.
+    def execute_exchange(self, payload: ApiRequestPayload) -> ApiExchangeRecord:
+        """Dispatches POST request to /api and captures the full request & response audit record.
 
         Args:
             payload: Validated ApiRequestPayload with c, e, t, p, s.
 
         Returns:
-            A tuple of (list of VideoSource, SessionCookies).
+            An ApiExchangeRecord containing full audit details, parsed sources, and cookies.
 
         Raises:
-            ApiClientError: If the API request fails or returns an invalid response.
+            ApiClientError: If the request fails.
         """
         form_data = payload.to_api_form_data()
         headers = {
@@ -56,6 +56,13 @@ class AnimeApiClient:
                 "Chrome/131.0.0.0 Safari/537.36"
             ),
         }
+
+        req_record = ApiRequestRecord(
+            endpoint=self.endpoint,
+            method="POST",
+            headers=headers,
+            form_payload=form_data,
+        )
 
         try:
             with httpx.Client(timeout=self.timeout) as client:
@@ -71,10 +78,30 @@ class AnimeApiClient:
             set_cookie_headers = response.headers.get_list("set-cookie")
             cookies = SessionCookies.from_cookie_list(set_cookie_headers)
 
+            resp_record = ApiResponseRecord(
+                status_code=response.status_code,
+                headers=dict(response.headers),
+                body=data,
+                cookies=cookies.raw_cookies,
+            )
+
             logger.debug(
                 f"Resolved {len(sources)} sources and {len(cookies.raw_cookies)} cookies for e={payload.e}"
             )
-            return sources, cookies
+            return ApiExchangeRecord(
+                request=req_record,
+                response=resp_record,
+                sources=sources,
+                session_cookies=cookies,
+            )
 
         except Exception as exc:
             raise ApiClientError(f"Failed calling {self.endpoint} for episode '{payload.e}': {exc}") from exc
+
+    def request_video_sources(
+        self,
+        payload: ApiRequestPayload,
+    ) -> tuple[list[VideoSource], SessionCookies]:
+        """Convenience method returning (sources, cookies)."""
+        exchange = self.execute_exchange(payload)
+        return exchange.sources, exchange.session_cookies or SessionCookies()

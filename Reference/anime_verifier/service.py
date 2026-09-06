@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import Callable
 
 from anime_verifier.client import AnimeApiClient
@@ -11,6 +12,8 @@ from anime_verifier.models import (
     EpisodeArticle,
     EpisodePlayer,
     EpisodeVerificationReport,
+    ExecutionMetadata,
+    ExecutionRunRecord,
     PlayerVerificationReport,
 )
 from anime_verifier.parser import parse_anime_page
@@ -43,14 +46,18 @@ class AnimeVerificationService:
     def verify_player(self, player: EpisodePlayer) -> PlayerVerificationReport:
         """Simulates the API request and verifies stream accessibility for a single player."""
         try:
-            sources, cookies = self.api_client.request_video_sources(player.payload)
+            exchange = self.api_client.execute_exchange(player.payload)
+            sources = exchange.sources
+            cookies = exchange.session_cookies
         except Exception as exc:
             logger.error(f"API request failed for player {player.player_index}: {exc}")
             return PlayerVerificationReport(
                 player_index=player.player_index,
-                payload=player.payload,
+                container_id=player.container_id,
+                data_apireq=player.payload,
                 sources=[],
                 cookies=None,
+                api_exchange=None,
                 stream_result=None,
             )
 
@@ -61,9 +68,11 @@ class AnimeVerificationService:
 
         return PlayerVerificationReport(
             player_index=player.player_index,
-            payload=player.payload,
+            container_id=player.container_id,
+            data_apireq=player.payload,
             sources=sources,
             cookies=cookies,
+            api_exchange=exchange,
             stream_result=stream_res,
         )
 
@@ -88,6 +97,41 @@ class AnimeVerificationService:
             is_fully_verified=is_fully_verified,
         )
 
+    def build_execution_run_record(
+        self,
+        url: str,
+        fetcher_mode: str,
+        reports: list[EpisodeVerificationReport],
+        timestamp: datetime | None = None,
+    ) -> ExecutionRunRecord:
+        """Transforms runtime verification reports into an auditable ExecutionRunRecord."""
+        ts = timestamp or datetime.now().astimezone()
+        article_records = [rep.to_article_record() for rep in reports]
+
+        total_players = sum(len(art.players) for art in article_records)
+        verified_streams = sum(
+            1
+            for art in article_records
+            for p in art.players
+            if p.stream_verification and p.stream_verification.is_success
+        )
+        failed_streams = total_players - verified_streams
+
+        metadata = ExecutionMetadata(
+            execution_timestamp=ts,
+            target_url=url,
+            fetcher_mode=fetcher_mode,
+            total_articles=len(article_records),
+            total_players=total_players,
+            verified_streams=verified_streams,
+            failed_streams=failed_streams,
+        )
+
+        return ExecutionRunRecord(
+            metadata=metadata,
+            articles=article_records,
+        )
+
     def run_verification(
         self,
         url: str,
@@ -96,18 +140,7 @@ class AnimeVerificationService:
         headless: bool = True,
         on_progress: Callable[[str, int, int], None] | None = None,
     ) -> list[EpisodeVerificationReport]:
-        """Executes end-to-end verification of all articles in the specified anime URL.
-
-        Args:
-            url: Anime1 category or post URL.
-            fetcher_mode: 'auto', 'http', or 'browser'.
-            limit: Maximum number of articles to verify.
-            headless: For browser fetcher.
-            on_progress: Optional callback function (status_text, current, total).
-
-        Returns:
-            List of EpisodeVerificationReport.
-        """
+        """Executes end-to-end verification of all articles in the specified anime URL."""
         fetcher = get_fetcher(mode=fetcher_mode, headless=headless)
         articles = self.fetch_articles(url, fetcher=fetcher)
 
