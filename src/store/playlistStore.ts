@@ -20,8 +20,7 @@ interface PlaylistStore {
 }
 
 export const usePlaylistStore = create<PlaylistStore>((set) => ({
-  targetUrl:
-    "https://anime1.me/category/2018%e5%b9%b4%e5%86%ac%e5%ad%a3/%e6%90%96%e6%9b%b3%e9%9c%b2%e7%87%9f%e2%96%b3",
+  targetUrl: "",
   playlist: null,
   selectedEpisodeId: null,
   isSidebarOpen: true,

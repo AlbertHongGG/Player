@@ -7,8 +7,8 @@ import {
   Film,
   Calendar,
   Layers,
-  Sparkles,
   RotateCw,
+  Clipboard,
 } from "lucide-react";
 import { usePlaylistStore } from "../../store/playlistStore";
 import { useVideoStore } from "../../store/videoStore";
@@ -33,6 +33,25 @@ export const PlaylistSidebar: React.FC = () => {
   const { show } = useNotifyStore();
 
   const [inputUrl, setInputUrl] = useState(targetUrl);
+
+  const handlePasteFromClipboard = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      const trimmed = text.trim();
+      if (trimmed.includes("anime1.me")) {
+        setInputUrl(trimmed);
+        show("Pasted Anime1 URL from clipboard", "success");
+      } else if (trimmed) {
+        setInputUrl(trimmed);
+        show("Pasted text from clipboard", "info");
+      } else {
+        show("Clipboard is empty", "warning");
+      }
+    } catch (err) {
+      console.warn("Clipboard read failed:", err);
+      show("Please allow clipboard permissions or paste manually", "warning");
+    }
+  };
 
   const handleParse = async () => {
     const trimmed = inputUrl.trim();
@@ -112,7 +131,7 @@ export const PlaylistSidebar: React.FC = () => {
             </div>
 
             {/* Input & Load Bar */}
-            <div className="flex items-center gap-1.5 bg-[#1a1a1a] border border-white/10 rounded-xl p-1 focus-within:border-[#facc15]/50 focus-within:ring-1 focus-within:ring-[#facc15]/30 transition-all">
+            <div className="flex items-center gap-1 bg-[#1a1a1a] border border-white/10 rounded-xl p-1 focus-within:border-[#facc15]/50 focus-within:ring-1 focus-within:ring-[#facc15]/30 transition-all">
               <input
                 type="text"
                 value={inputUrl}
@@ -120,14 +139,25 @@ export const PlaylistSidebar: React.FC = () => {
                 onKeyDown={(e) => {
                   if (e.key === "Enter") handleParse();
                 }}
-                placeholder="Paste Anime1 URL..."
+                placeholder="Enter or paste Anime1 URL..."
                 className="w-full bg-transparent text-xs text-white placeholder-gray-500 px-2.5 py-1.5 focus:outline-none"
               />
-              <Tooltip content="Parse URL" position="bottom">
+
+              <Tooltip content="Paste from Clipboard" position="bottom">
+                <button
+                  type="button"
+                  onClick={handlePasteFromClipboard}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-all shrink-0 cursor-pointer"
+                >
+                  <Clipboard size={13} />
+                </button>
+              </Tooltip>
+
+              <Tooltip content="Load Playlist" position="bottom">
                 <button
                   onClick={handleParse}
                   disabled={isParsing}
-                  className="w-7 h-7 flex items-center justify-center rounded-lg bg-[#facc15] hover:bg-white text-black transition-all disabled:opacity-50 shrink-0"
+                  className="w-7 h-7 flex items-center justify-center rounded-lg bg-[#facc15] hover:bg-white text-black transition-all disabled:opacity-50 shrink-0 cursor-pointer"
                 >
                   {isParsing ? (
                     <Loader2 size={13} className="animate-spin text-black" />
@@ -153,7 +183,7 @@ export const PlaylistSidebar: React.FC = () => {
                   <button
                     onClick={handleParse}
                     disabled={isParsing}
-                    className="text-gray-400 hover:text-[#facc15] transition-colors p-1"
+                    className="text-gray-400 hover:text-[#facc15] transition-colors p-1 cursor-pointer"
                     title="Reload"
                   >
                     <RotateCw size={12} className={isParsing ? "animate-spin" : ""} />
@@ -167,7 +197,7 @@ export const PlaylistSidebar: React.FC = () => {
                       <button
                         key={ep.id}
                         onClick={() => handleSelectEpisode(ep)}
-                        className={`w-full text-left p-3 rounded-xl transition-all duration-200 border flex flex-col gap-1 group relative ${
+                        className={`w-full text-left p-3 rounded-xl transition-all duration-200 border flex flex-col gap-1 group relative cursor-pointer ${
                           isSelected
                             ? "bg-[#facc15]/10 border-[#facc15]/40 text-white shadow-[0_0_15px_rgba(250,204,21,0.15)]"
                             : "bg-white/[0.02] border-white/5 text-gray-300 hover:bg-white/[0.06] hover:border-white/15"
@@ -211,22 +241,22 @@ export const PlaylistSidebar: React.FC = () => {
                 </div>
               </>
             ) : (
-              <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-gray-500 gap-3">
+              <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-gray-500 gap-4">
                 <div className="w-12 h-12 rounded-full bg-white/[0.03] border border-white/5 flex items-center justify-center text-gray-400">
                   <Layers size={22} />
                 </div>
                 <div>
                   <p className="text-xs font-medium text-gray-300 mb-1">No Playlist Loaded</p>
-                  <p className="text-[11px] text-gray-500">
-                    Enter an Anime1 series link above and click Search to load episodes.
+                  <p className="text-[11px] text-gray-500 max-w-[220px] leading-relaxed">
+                    Enter an Anime1 series URL above or paste from clipboard to load episodes.
                   </p>
                 </div>
                 <button
-                  onClick={handleParse}
-                  className="mt-2 text-xs text-[#facc15] hover:underline flex items-center gap-1 cursor-pointer"
+                  onClick={handlePasteFromClipboard}
+                  className="px-3.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-xs text-gray-300 hover:text-white transition-colors flex items-center gap-2 border border-white/10 cursor-pointer shadow-sm"
                 >
-                  <Sparkles size={12} />
-                  <span>Load Sample Anime (搖曳露營△)</span>
+                  <Clipboard size={12} className="text-[#facc15]" />
+                  <span>Paste from Clipboard</span>
                 </button>
               </div>
             )}

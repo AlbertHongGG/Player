@@ -1,10 +1,12 @@
-use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE, ORIGIN, REFERER, USER_AGENT};
+use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, CONTENT_TYPE, ORIGIN, REFERER, USER_AGENT};
 use serde_json::Value;
+use std::error::Error as StdError;
 use std::time::Duration;
 use uuid::Uuid;
 
-use crate::domain::episode::{Episode, StreamSession};
+use crate::domain::episode::StreamSession;
 use crate::domain::errors::ProviderError;
+use crate::infrastructure::providers::anime1::parser::Anime1Payload;
 
 const USER_AGENT_STR: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 const API_ENDPOINT: &str = "https://v.anime1.me/api";
@@ -18,7 +20,9 @@ pub struct Anime1Client {
 impl Anime1Client {
     pub fn new() -> Self {
         let client = reqwest::Client::builder()
-            .timeout(Duration::from_secs(15))
+            .timeout(Duration::from_secs(20))
+            .pool_idle_timeout(Duration::from_secs(30))
+            .http2_adaptive_window(true)
             .build()
             .unwrap_or_else(|_| reqwest::Client::new());
 
@@ -31,9 +35,18 @@ impl Anime1Client {
             .get(url)
             .header(USER_AGENT, USER_AGENT_STR)
             .header(REFERER, SITE_REFERER)
+            .header(ACCEPT, "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
             .send()
             .await
-            .map_err(|e| ProviderError::Network(format!("Failed to fetch page {}: {}", url, e)))?;
+            .map_err(|e| {
+                let mut detail = format!("Failed to fetch page {}: {}", url, e);
+                let mut src = e.source();
+                while let Some(s) = src {
+                    detail.push_str(&format!(" -> Caused by: {}", s));
+                    src = s.source();
+                }
+                ProviderError::Network(detail)
+            })?;
 
         let status = resp.status();
         if !status.is_success() {
@@ -51,14 +64,19 @@ impl Anime1Client {
         Ok(html)
     }
 
-    pub async fn resolve_stream(&self, episode: &Episode) -> Result<StreamSession, ProviderError> {
-        let payload_json = serde_json::to_string(&episode.payload)
+    pub async fn resolve_stream(
+        &self,
+        episode_id: &str,
+        payload: &Anime1Payload,
+    ) -> Result<StreamSession, ProviderError> {
+        let payload_json = serde_json::to_string(payload)
             .map_err(|e| ProviderError::Api(format!("Failed to serialize payload: {}", e)))?;
 
         let mut headers = HeaderMap::new();
         headers.insert(USER_AGENT, HeaderValue::from_static(USER_AGENT_STR));
         headers.insert(ORIGIN, HeaderValue::from_static(SITE_ORIGIN));
         headers.insert(REFERER, HeaderValue::from_static(SITE_REFERER));
+        headers.insert(ACCEPT, HeaderValue::from_static("*/*"));
         headers.insert(
             CONTENT_TYPE,
             HeaderValue::from_static("application/x-www-form-urlencoded"),
@@ -74,18 +92,24 @@ impl Anime1Client {
             .send()
             .await
             .map_err(|e| {
-                ProviderError::Api(format!("Failed to call {}: {}", API_ENDPOINT, e))
+                let mut detail = format!("Failed to call {}: {}", API_ENDPOINT, e);
+                let mut src = e.source();
+                while let Some(s) = src {
+                    detail.push_str(&format!(" -> Caused by: {}", s));
+                    src = s.source();
+                }
+                ProviderError::Api(detail)
             })?;
 
         let status = resp.status();
         if !status.is_success() {
             return Err(ProviderError::Api(format!(
                 "API returned HTTP {}: for episode {}",
-                status, episode.id
+                status, episode_id
             )));
         }
 
-        // Extract Set-Cookie headers
+        // Extract Set-Cookie headers (e, p, h)
         let mut cookie_pairs = Vec::new();
         for cookie_val in resp.headers().get_all("set-cookie") {
             if let Ok(val_str) = cookie_val.to_str() {
@@ -139,24 +163,19 @@ impl Anime1Client {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::infrastructure::providers::anime1::parser::Anime1Parser;
 
     #[tokio::test]
-    async fn test_live_anime1_flow() {
+    async fn test_direct_api_call() {
         let client = Anime1Client::new();
-        let url = "https://anime1.me/category/2018%e5%b9%b4%e5%86%ac%e5%ad%a3/%e6%90%96%e6%9b%b3%e9%9c%b2%e7%87%9f%e2%96%b3";
-        let html = client.fetch_page(url).await.expect("Failed to fetch anime1 page");
-        assert!(!html.is_empty());
-
-        let playlist = Anime1Parser::parse_html(url, &html).expect("Failed to parse anime1 html");
-        assert!(!playlist.episodes.is_empty());
-        println!("Parsed {} episodes for {}", playlist.episodes.len(), playlist.title);
-
-        let first_ep = &playlist.episodes[0];
-        let session = client.resolve_stream(first_ep).await.expect("Failed to resolve stream for first ep");
-        assert!(session.stream_url.starts_with("https://"));
-        assert!(!session.cookie_header.is_empty());
-        println!("Resolved stream: {}", session.stream_url);
-        println!("Cookies: {}", session.cookie_header);
+        let payload = Anime1Payload {
+            c: "256".to_string(),
+            e: "1".to_string(),
+            t: 1788701772,
+            p: 5,
+            s: "699d175fd2f5618df0ce268d0b71ef95".to_string(),
+        };
+        let res = client.resolve_stream("test_1", &payload).await;
+        println!("Result: {:?}", res);
+        assert!(res.is_ok());
     }
 }

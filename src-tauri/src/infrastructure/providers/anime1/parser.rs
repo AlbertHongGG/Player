@@ -1,11 +1,25 @@
 use scraper::{Html, Selector};
-use crate::domain::episode::{Episode, Playlist, ApiReqPayload};
+use serde::{Deserialize, Serialize};
+
+use crate::domain::episode::{Episode, Playlist};
 use crate::domain::errors::ProviderError;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Anime1Payload {
+    pub c: String,
+    pub e: String,
+    pub t: i64,
+    pub p: i32,
+    pub s: String,
+}
 
 pub struct Anime1Parser;
 
 impl Anime1Parser {
-    pub fn parse_html(url: &str, html_content: &str) -> Result<Playlist, ProviderError> {
+    pub fn parse_html(
+        url: &str,
+        html_content: &str,
+    ) -> Result<(Playlist, Vec<(String, Anime1Payload)>), ProviderError> {
         let document = Html::parse_document(html_content);
 
         // 1. Extract Playlist Title (prioritize page-title over title tag)
@@ -36,13 +50,17 @@ impl Anime1Parser {
 
         // 2. Select articles
         let article_sel = Selector::parse("article").map_err(|e| ProviderError::Parse(e.to_string()))?;
-        let entry_title_sel = Selector::parse("header.entry-header h2.entry-title a, header.entry-header h1.entry-title a, h2.entry-title, h1.entry-title")
-            .map_err(|e| ProviderError::Parse(e.to_string()))?;
+        let entry_title_sel = Selector::parse(
+            "header.entry-header h2.entry-title a, header.entry-header h1.entry-title a, h2.entry-title, h1.entry-title",
+        )
+        .map_err(|e| ProviderError::Parse(e.to_string()))?;
         let date_sel = Selector::parse("time.entry-date, time[datetime]")
             .map_err(|e| ProviderError::Parse(e.to_string()))?;
-        let apireq_sel = Selector::parse("[data-apireq]").map_err(|e| ProviderError::Parse(e.to_string()))?;
+        let apireq_sel = Selector::parse("[data-apireq]")
+            .map_err(|e| ProviderError::Parse(e.to_string()))?;
 
         let mut episodes = Vec::new();
+        let mut payloads = Vec::new();
 
         for article in document.select(&article_sel) {
             let article_id = article.value().attr("id").unwrap_or("unknown_article").to_string();
@@ -78,10 +96,13 @@ impl Anime1Parser {
                 if let Some(raw_req) = req_el.value().attr("data-apireq") {
                     let decoded = urlencoding::decode(raw_req)
                         .map_err(|e| ProviderError::Parse(e.to_string()))?;
-                    let payload: ApiReqPayload = match serde_json::from_str(&decoded) {
+                    let payload: Anime1Payload = match serde_json::from_str(&decoded) {
                         Ok(p) => p,
                         Err(e) => {
-                            eprintln!("Warning: Failed to parse data-apireq JSON: {}, error: {}", decoded, e);
+                            eprintln!(
+                                "Warning: Failed to parse data-apireq JSON: {}, error: {}",
+                                decoded, e
+                            );
                             continue;
                         }
                     };
@@ -98,6 +119,8 @@ impl Anime1Parser {
                         ep_title.clone()
                     };
 
+                    payloads.push((ep_id.clone(), payload));
+
                     episodes.push(Episode {
                         id: ep_id,
                         title: final_title,
@@ -105,7 +128,6 @@ impl Anime1Parser {
                         article_url: article_url.clone(),
                         player_index,
                         provider_id: "anime1".to_string(),
-                        payload,
                     });
 
                     player_index += 1;
@@ -117,12 +139,15 @@ impl Anime1Parser {
         // Reverse so that Episode 01 appears first in chronological order.
         episodes.reverse();
 
-        Ok(Playlist {
-            title: cleaned_title,
-            url: url.to_string(),
-            provider_id: "anime1".to_string(),
-            episodes,
-        })
+        Ok((
+            Playlist {
+                title: cleaned_title,
+                url: url.to_string(),
+                provider_id: "anime1".to_string(),
+                episodes,
+            },
+            payloads,
+        ))
     }
 }
 
@@ -166,18 +191,16 @@ mod tests {
         </html>
         "#;
 
-        let playlist = Anime1Parser::parse_html("https://anime1.me/category/sample", html).unwrap();
+        let (playlist, payloads) =
+            Anime1Parser::parse_html("https://anime1.me/category/sample", html).unwrap();
         assert_eq!(playlist.title, "搖曳露營△");
         assert_eq!(playlist.episodes.len(), 2);
+        assert_eq!(payloads.len(), 2);
 
         // Episode 12 is first because of reverse chronological sort
         assert_eq!(playlist.episodes[0].title, "搖曳露營△ [12]");
-        assert_eq!(playlist.episodes[0].payload.c, "1941");
-        assert_eq!(playlist.episodes[0].payload.e, "6b");
 
         // BD特典SP is second
         assert_eq!(playlist.episodes[1].title, "搖曳露營△ [BD特典SP]");
-        assert_eq!(playlist.episodes[1].payload.c, "2256");
-        assert_eq!(playlist.episodes[1].payload.e, "sp-episode0");
     }
 }

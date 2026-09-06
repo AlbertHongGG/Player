@@ -3,5 +3,5 @@ pub mod episode;
 pub mod provider;
 
 pub use errors::ProviderError;
-pub use episode::{Episode, Playlist, StreamSession, PlayableStreamDto, ApiReqPayload};
+pub use episode::{Episode, Playlist, StreamSession, PlayableStreamDto};
 pub use provider::VideoSourceProvider;

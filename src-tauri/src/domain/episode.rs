@@ -2,15 +2,6 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct ApiReqPayload {
-    pub c: String,
-    pub e: String,
-    pub t: f64,
-    pub p: i32,
-    pub s: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct Episode {
     pub id: String,
     pub title: String,
@@ -18,7 +9,6 @@ pub struct Episode {
     pub article_url: Option<String>,
     pub player_index: u32,
     pub provider_id: String,
-    pub payload: ApiReqPayload,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
