@@ -78,17 +78,21 @@ impl Anime1Parser {
                 ep_title = article_id.clone();
             }
 
-            // Date
+            // Date (prefer clean text representation, or sanitize ISO string to YYYY-MM-DD)
             let published_at = article
                 .select(&date_sel)
                 .next()
-                .and_then(|el| {
-                    el.value()
-                        .attr("datetime")
-                        .map(|s| s.to_string())
-                        .or_else(|| Some(el.text().collect::<String>()))
+                .map(|el| {
+                    let text = el.text().collect::<String>().trim().to_string();
+                    if !text.is_empty() {
+                        text
+                    } else if let Some(dt) = el.value().attr("datetime") {
+                        dt.split('T').next().unwrap_or(dt).trim().to_string()
+                    } else {
+                        String::new()
+                    }
                 })
-                .map(|s| s.trim().to_string());
+                .filter(|s| !s.is_empty());
 
             // Players in this article
             let mut player_index: u32 = 1;
