@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search,
@@ -6,7 +6,6 @@ import {
   Loader2,
   Film,
   Calendar,
-  Layers,
   RotateCw,
   Clipboard,
 } from "lucide-react";
@@ -33,6 +32,11 @@ export const PlaylistSidebar: React.FC = () => {
   const { show } = useNotifyStore();
 
   const [inputUrl, setInputUrl] = useState(targetUrl);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleFocusInput = () => {
+    inputRef.current?.focus();
+  };
 
   const handlePasteFromClipboard = async () => {
     try {
@@ -112,7 +116,7 @@ export const PlaylistSidebar: React.FC = () => {
           animate={{ width: 340, opacity: 1 }}
           exit={{ width: 0, opacity: 0 }}
           transition={{ duration: 0.3, ease: "easeInOut" }}
-          className="h-full bg-[#121212] border-r border-white/10 flex flex-col overflow-hidden shrink-0 z-20 shadow-[20px_0_40px_rgba(0,0,0,0.5)] select-none"
+          className="h-full bg-[#121212] border-r border-white/10 flex flex-col overflow-hidden shrink-0 z-20 select-none"
         >
           {/* Header & URL Input */}
           <div className="p-4 border-b border-white/5 space-y-3">
@@ -133,6 +137,7 @@ export const PlaylistSidebar: React.FC = () => {
             {/* Input & Load Bar */}
             <div className="flex items-center gap-1 bg-[#1a1a1a] border border-white/10 rounded-xl p-1 focus-within:border-[#facc15]/50 focus-within:ring-1 focus-within:ring-[#facc15]/30 transition-all">
               <input
+                ref={inputRef}
                 type="text"
                 value={inputUrl}
                 onChange={(e) => setInputUrl(e.target.value)}
@@ -241,23 +246,35 @@ export const PlaylistSidebar: React.FC = () => {
                 </div>
               </>
             ) : (
-              <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-gray-500 gap-4">
-                <div className="w-12 h-12 rounded-full bg-white/[0.03] border border-white/5 flex items-center justify-center text-gray-400">
-                  <Layers size={22} />
+              <div
+                onClick={handleFocusInput}
+                className="flex-1 flex flex-col items-center justify-center p-6 text-center select-none cursor-pointer group"
+              >
+                {/* Concentric Multi-layered Interactive Container */}
+                <div className="relative mb-6 flex items-center justify-center">
+                  {/* Layer 1: Ambient Background Glow with smooth expansion */}
+                  <div className="absolute inset-0 w-32 h-32 rounded-full bg-[#facc15]/5 blur-2xl scale-90 opacity-40 group-hover:bg-[#facc15]/15 group-hover:scale-115 group-hover:opacity-80 transition-all duration-500 ease-out pointer-events-none" />
+
+                  {/* Layer 2: Subtle Sub-orbital Ring */}
+                  <div className="w-28 h-28 rounded-full border border-white/[0.03] group-hover:border-[#facc15]/10 absolute transition-colors duration-500 pointer-events-none" />
+
+                  {/* Layer 3: Orbiting Dashed Ring with scale and golden resonance */}
+                  <div className="w-32 h-32 rounded-full border border-dashed border-white/10 group-hover:border-[#facc15]/30 group-hover:scale-105 flex items-center justify-center relative animate-[spin_35s_linear_infinite] transition-all duration-500 ease-out pointer-events-none" />
+
+                  {/* Layer 4: Frosted Core Glass Badge with elevation and inner aura */}
+                  <div className="w-20 h-20 rounded-full bg-[#131313]/90 border border-white/10 group-hover:border-[#facc15]/40 group-hover:scale-105 group-hover:bg-[#181818] shadow-[0_4px_24px_rgba(0,0,0,0.7)] group-hover:shadow-[0_0_25px_rgba(250,204,21,0.2)] flex items-center justify-center absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 backdrop-blur-md transition-all duration-300 ease-out">
+                    {/* Layer 5: Glowing Golden Accent Icon */}
+                    <Film
+                      size={28}
+                      className="text-[#facc15] opacity-75 group-hover:opacity-100 group-hover:scale-110 group-hover:drop-shadow-[0_0_10px_rgba(250,204,21,0.75)] transition-all duration-300 ease-out"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs font-medium text-gray-300 mb-1">No Playlist Loaded</p>
-                  <p className="text-[11px] text-gray-500 max-w-[220px] leading-relaxed">
-                    Enter an Anime1 series URL above or paste from clipboard to load episodes.
-                  </p>
-                </div>
-                <button
-                  onClick={handlePasteFromClipboard}
-                  className="px-3.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-xs text-gray-300 hover:text-white transition-colors flex items-center gap-2 border border-white/10 cursor-pointer shadow-sm"
-                >
-                  <Clipboard size={12} className="text-[#facc15]" />
-                  <span>Paste from Clipboard</span>
-                </button>
+
+                {/* Layer 6: Dynamic Tracking Typography */}
+                <span className="text-[10px] text-gray-500 font-bold tracking-[0.3em] uppercase group-hover:text-gray-300 group-hover:tracking-[0.35em] transition-all duration-300">
+                  NO PLAYLIST
+                </span>
               </div>
             )}
           </div>

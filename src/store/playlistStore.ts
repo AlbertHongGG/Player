@@ -23,7 +23,7 @@ export const usePlaylistStore = create<PlaylistStore>((set) => ({
   targetUrl: "",
   playlist: null,
   selectedEpisodeId: null,
-  isSidebarOpen: true,
+  isSidebarOpen: false,
   isParsing: false,
   error: null,
 
