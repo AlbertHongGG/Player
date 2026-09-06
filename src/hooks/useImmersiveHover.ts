@@ -19,10 +19,16 @@ export function useImmersiveHover(): void {
     // Auto-hide cursor when video is actively playing and in immersive or fullscreen mode
     if (isPlaying && (isImmersive || isFullscreen)) {
       idleTimerRef.current = window.setTimeout(() => {
-        setIsCursorHidden(true);
+        const uiState = useUiStore.getState();
+        // If user is actively hovering on the TitleBar or VideoControls, keep them visible
+        if (!uiState.isTopHovered && !uiState.isBottomHovered) {
+          setIsCursorHidden(true);
+          setIsNearTop(false);
+          setIsNearBottom(false);
+        }
       }, 2500);
     }
-  }, [isPlaying, isImmersive, isFullscreen, setIsCursorHidden]);
+  }, [isPlaying, isImmersive, isFullscreen, setIsCursorHidden, setIsNearTop, setIsNearBottom]);
 
   useEffect(() => {
     if (!isImmersive && !isFullscreen) {
@@ -33,8 +39,9 @@ export function useImmersiveHover(): void {
     }
 
     const handleMouseMove = (e: MouseEvent) => {
-      const topBoundary = 56;
-      const bottomBoundary = window.innerHeight - 90;
+      // Expanded proximity zones: top TitleBar (48px + ~52px buffer), bottom VideoControls (72px + ~58px buffer)
+      const topBoundary = 100;
+      const bottomBoundary = window.innerHeight - 130;
 
       const isSidebarOpen = usePlaylistStore.getState().isSidebarOpen;
       const isInsideSidebar = isSidebarOpen && e.clientX >= window.innerWidth - 340;
