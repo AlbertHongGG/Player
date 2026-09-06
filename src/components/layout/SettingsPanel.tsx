@@ -23,6 +23,16 @@ export const SettingsPanel: React.FC = () => {
                 setter={store.setAutoPlayNext}
               />
             </SettingRow>
+            <SettingRow
+              label="Default to Immersive Mode"
+              description="Fill the entire window with video with auto-hiding header and controls (PiP feel)."
+            >
+              <SettingToggle
+                settingKey="isImmersive"
+                checked={store.isImmersive}
+                setter={store.setIsImmersive}
+              />
+            </SettingRow>
           </SettingSection>
 
           {/* Keyboard Shortcuts Reference */}
@@ -35,6 +45,14 @@ export const SettingsPanel: React.FC = () => {
               <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/5">
                 <span className="text-gray-300">Toggle / Exit Fullscreen</span>
                 <kbd className="px-2 py-1 bg-white/10 rounded font-mono text-[#facc15]">Enter / Esc</kbd>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/5">
+                <span className="text-gray-300">Toggle Immersive Mode</span>
+                <kbd className="px-2 py-1 bg-white/10 rounded font-mono text-[#facc15]">I</kbd>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/5">
+                <span className="text-gray-300">Toggle Playlist Sidebar</span>
+                <kbd className="px-2 py-1 bg-white/10 rounded font-mono text-[#facc15]">P</kbd>
               </div>
               <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/5">
                 <span className="text-gray-300">Seek -1s / +1s</span>

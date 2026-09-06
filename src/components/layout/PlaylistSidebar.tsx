@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { usePlaylistStore } from "../../store/playlistStore";
 import { useVideoStore } from "../../store/videoStore";
+import { useSettingsStore } from "../../store/settingsStore";
 import { useNotifyStore } from "../../store/notifyStore";
 import { commands, Episode } from "../../types/bindings";
 import { Tooltip } from "../ui/Tooltip";
@@ -29,6 +30,7 @@ export const PlaylistSidebar: React.FC = () => {
   } = usePlaylistStore();
 
   const { setVideoUrl, setIsLoadingStream, setIsPlaying } = useVideoStore();
+  const { isImmersive } = useSettingsStore();
   const { show } = useNotifyStore();
 
   const [inputUrl, setInputUrl] = useState(targetUrl);
@@ -81,7 +83,7 @@ export const PlaylistSidebar: React.FC = () => {
       }
     } catch (e) {
       console.error("Parse URL error:", e);
-      show(`Error: ${e}`, "error");
+      show(`Error parsing URL: ${e}`, "error");
     } finally {
       setIsParsing(false);
     }
@@ -97,6 +99,9 @@ export const PlaylistSidebar: React.FC = () => {
         setVideoUrl(res.data.stream_url, episode.title);
         setIsPlaying(true);
         show(`Playing: ${episode.title}`, "success");
+        if (isImmersive) {
+          usePlaylistStore.getState().toggleSidebar();
+        }
       } else {
         show(`Failed to resolve episode: ${res.error}`, "error");
       }
@@ -111,13 +116,30 @@ export const PlaylistSidebar: React.FC = () => {
   return (
     <AnimatePresence>
       {isSidebarOpen && (
-        <motion.div
-          initial={{ width: 0, opacity: 0 }}
-          animate={{ width: 340, opacity: 1 }}
-          exit={{ width: 0, opacity: 0 }}
-          transition={{ duration: 0.3, ease: "easeInOut" }}
-          className="h-full bg-[#121212] border-l border-white/10 flex flex-col overflow-hidden shrink-0 z-20 select-none"
-        >
+        <>
+          {/* Subtle click-outside backdrop in immersive mode */}
+          {isImmersive && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="absolute inset-0 z-30 bg-black/50 backdrop-blur-[2px]"
+              onClick={() => usePlaylistStore.getState().toggleSidebar()}
+            />
+          )}
+
+          <motion.div
+            initial={isImmersive ? { x: 340, opacity: 0 } : { width: 0, opacity: 0 }}
+            animate={isImmersive ? { x: 0, opacity: 1 } : { width: 340, opacity: 1 }}
+            exit={isImmersive ? { x: 340, opacity: 0 } : { width: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
+            className={
+              isImmersive
+                ? "absolute top-0 right-0 h-full w-[340px] bg-[#121212]/95 backdrop-blur-xl border-l border-white/10 shadow-2xl flex flex-col overflow-hidden z-40 select-none"
+                : "h-full bg-[#121212] border-l border-white/10 flex flex-col overflow-hidden shrink-0 z-20 select-none"
+            }
+          >
           {/* Header & URL Input */}
           <div className="p-4 border-b border-white/5 space-y-3">
             <div className="flex items-center justify-between">
@@ -263,6 +285,7 @@ export const PlaylistSidebar: React.FC = () => {
             )}
           </div>
         </motion.div>
+        </>
       )}
     </AnimatePresence>
   );

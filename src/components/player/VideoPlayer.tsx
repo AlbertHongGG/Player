@@ -9,7 +9,17 @@ import { Loader2 } from "lucide-react";
 import { commands } from "../../types/bindings";
 import { useNotifyStore } from "../../store/notifyStore";
 
-export const VideoPlayer: React.FC = () => {
+interface VideoPlayerProps {
+  isControlsVisible?: boolean;
+  onControlsHoverChange?: (hovered: boolean) => void;
+  isCursorHidden?: boolean;
+}
+
+export const VideoPlayer: React.FC<VideoPlayerProps> = ({
+  isControlsVisible = true,
+  onControlsHoverChange,
+  isCursorHidden = false,
+}) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerWrapperRef = useRef<HTMLDivElement>(null);
 
@@ -30,7 +40,7 @@ export const VideoPlayer: React.FC = () => {
   } = useVideoStore();
 
   const { playlist, selectedEpisodeId, selectEpisode } = usePlaylistStore();
-  const { autoPlayNext } = useSettingsStore();
+  const { autoPlayNext, isImmersive } = useSettingsStore();
   const { show } = useNotifyStore();
 
   // Attach global keyboard shortcuts
@@ -128,8 +138,12 @@ export const VideoPlayer: React.FC = () => {
       ref={playerWrapperRef}
       className={
         isFullscreen
-          ? "fixed inset-0 z-[9999] bg-[#0a0a0a] flex flex-col overflow-hidden select-none"
-          : "w-full h-full flex flex-col bg-[#0a0a0a] overflow-hidden select-none"
+          ? `fixed inset-0 z-[9999] bg-[#0a0a0a] flex flex-col overflow-hidden select-none ${
+              isCursorHidden ? "cursor-none" : ""
+            }`
+          : `w-full h-full flex flex-col bg-[#0a0a0a] overflow-hidden select-none ${
+              isCursorHidden ? "cursor-none" : ""
+            }`
       }
     >
       {videoUrl ? (
@@ -160,9 +174,17 @@ export const VideoPlayer: React.FC = () => {
           </div>
 
           {/* Controls Bar */}
-          {isFullscreen ? (
-            <div className="absolute bottom-0 left-0 w-full h-[150px] z-50 flex flex-col justify-end overflow-hidden group/controls">
-              <div className="transform translate-y-full group-hover/controls:translate-y-0 transition-transform duration-300 ease-out">
+          {isFullscreen || isImmersive ? (
+            <div
+              className={`absolute bottom-0 left-0 w-full z-50 transition-all duration-300 ease-out ${
+                isControlsVisible
+                  ? "translate-y-0 opacity-100 pointer-events-auto"
+                  : "translate-y-full opacity-0 pointer-events-none"
+              }`}
+              onMouseEnter={() => onControlsHoverChange?.(true)}
+              onMouseLeave={() => onControlsHoverChange?.(false)}
+            >
+              <div className="w-full bg-gradient-to-t from-black/95 via-black/70 to-transparent pt-8 backdrop-blur-sm">
                 <VideoControls />
               </div>
             </div>

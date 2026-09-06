@@ -1,16 +1,28 @@
 import React, { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { WebviewWindow, getAllWebviewWindows } from "@tauri-apps/api/webviewWindow";
-import { Minus, Square, X, Maximize, Settings, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { Minus, Square, X, Maximize, Settings, PanelRightClose, PanelRightOpen, PictureInPicture2 } from "lucide-react";
 import { Tooltip } from "../ui/Tooltip";
 import { usePlaylistStore } from "../../store/playlistStore";
+import { useSettingsStore } from "../../store/settingsStore";
 import { useNotifyStore } from "../../store/notifyStore";
 
-export const TitleBar: React.FC = () => {
+interface TitleBarProps {
+  isFloating?: boolean;
+  isVisible?: boolean;
+  onHoverChange?: (hovered: boolean) => void;
+}
+
+export const TitleBar: React.FC<TitleBarProps> = ({
+  isFloating = false,
+  isVisible = true,
+  onHoverChange,
+}) => {
   const [isMaximized, setIsMaximized] = useState(false);
   const appWindow = getCurrentWindow();
 
   const { isSidebarOpen, toggleSidebar } = usePlaylistStore();
+  const { isImmersive, toggleImmersive } = useSettingsStore();
   const { show } = useNotifyStore();
 
   useEffect(() => {
@@ -70,7 +82,17 @@ export const TitleBar: React.FC = () => {
   return (
     <div
       data-tauri-drag-region
-      className="h-[48px] w-full flex items-center bg-black/60 backdrop-blur-md select-none border-b border-white/5 z-50 absolute top-0 left-0 px-3"
+      onMouseEnter={() => onHoverChange?.(true)}
+      onMouseLeave={() => onHoverChange?.(false)}
+      className={
+        isFloating
+          ? `fixed top-0 left-0 w-full h-[48px] z-50 transition-all duration-300 ease-out select-none px-3 flex items-center ${
+              isVisible
+                ? "translate-y-0 opacity-100 bg-gradient-to-b from-black/90 via-black/50 to-transparent backdrop-blur-md pointer-events-auto"
+                : "-translate-y-full opacity-0 pointer-events-none"
+            }`
+          : "h-[48px] w-full flex items-center bg-black/60 backdrop-blur-md select-none border-b border-white/5 z-50 absolute top-0 left-0 px-3"
+      }
     >
       {/* Left Section: Sidebar Toggle */}
       <div className="flex items-center gap-1 w-1/3 h-full" data-tauri-drag-region>
@@ -79,7 +101,7 @@ export const TitleBar: React.FC = () => {
           data-tauri-drag-region="false"
           onMouseDown={(e) => e.stopPropagation()}
         >
-          <Tooltip content={isSidebarOpen ? "Hide Playlist" : "Show Playlist"} position="bottom">
+          <Tooltip content={isSidebarOpen ? "Hide Playlist (P)" : "Show Playlist (P)"} position="bottom">
             <button
               onClick={toggleSidebar}
               className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all ${
@@ -107,6 +129,24 @@ export const TitleBar: React.FC = () => {
           data-tauri-drag-region="false"
           onMouseDown={(e) => e.stopPropagation()}
         >
+          {/* Immersive Mode Toggle */}
+          <Tooltip
+            content={isImmersive ? "Exit Immersive Mode (I)" : "Immersive Mode (I)"}
+            position="bottom"
+          >
+            <button
+              onClick={toggleImmersive}
+              className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all ${
+                isImmersive
+                  ? "text-[#facc15] hover:bg-white/10"
+                  : "text-gray-400 hover:text-white hover:bg-white/10"
+              } mr-1`}
+              aria-label="Toggle Immersive Mode"
+            >
+              <PictureInPicture2 size={16} />
+            </button>
+          </Tooltip>
+
           <Tooltip content="Settings" position="bottom">
             <button
               onClick={handleOpenSettings}

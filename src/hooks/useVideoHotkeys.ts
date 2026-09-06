@@ -1,5 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useVideoStore } from "../store/videoStore";
+import { useSettingsStore } from "../store/settingsStore";
+import { usePlaylistStore } from "../store/playlistStore";
 
 interface UseVideoHotkeysProps {
   videoRef: React.RefObject<HTMLVideoElement | null>;
@@ -99,6 +101,18 @@ export function useVideoHotkeys({ videoRef, playerWrapperRef }: UseVideoHotkeysP
         } else {
           state.setPlaybackRate(state.previousPlaybackRate);
         }
+        return;
+      }
+
+      if ((e.key === "i" || e.key === "I") && !e.repeat) {
+        e.preventDefault();
+        useSettingsStore.getState().toggleImmersive();
+        return;
+      }
+
+      if ((e.key === "p" || e.key === "P") && !e.repeat) {
+        e.preventDefault();
+        usePlaylistStore.getState().toggleSidebar();
         return;
       }
 
