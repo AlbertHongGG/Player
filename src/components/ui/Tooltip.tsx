@@ -1,5 +1,6 @@
 import React from "react";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
+import { useSettingsStore } from "../../store/settingsStore";
 
 interface TooltipProps {
   children: React.ReactNode;
@@ -14,6 +15,14 @@ export const Tooltip: React.FC<TooltipProps> = ({
   position = "top",
   delayDuration,
 }) => {
+  const showTooltips = useSettingsStore((state) => state.showTooltips);
+
+  // Transparent Proxy: When tooltips are disabled, bypass Radix UI completely
+  // (0 DOM portal nodes, 0 event listeners, 0 ghost popups)
+  if (!showTooltips) {
+    return <>{children}</>;
+  }
+
   return (
     <TooltipPrimitive.Root delayDuration={delayDuration} disableHoverableContent>
       <TooltipPrimitive.Trigger asChild onFocus={(e) => e.preventDefault()}>

@@ -11,11 +11,11 @@ export const SettingsPanel: React.FC = () => {
     <div className="w-full h-full p-8 text-white overflow-y-auto custom-scrollbar bg-[#0f0f0f]">
       <div className="max-w-3xl mx-auto pt-4">
         <div className="space-y-8">
-          {/* Playback Preferences */}
-          <SettingSection title="Playback Preferences">
+          {/* Preferences */}
+          <SettingSection title="Preferences">
             <SettingRow
-              label="Auto-Play Next Episode"
-              description="Automatically load and start the next episode when current video finishes."
+              label="Auto-Play Next"
+              description="Automatically start next episode."
             >
               <SettingToggle
                 settingKey="autoPlayNext"
@@ -24,13 +24,23 @@ export const SettingsPanel: React.FC = () => {
               />
             </SettingRow>
             <SettingRow
-              label="Default to Immersive Mode"
-              description="Fill the entire window with video with auto-hiding header and controls (PiP feel)."
+              label="Default Immersive"
+              description="Start in borderless cinema canvas."
             >
               <SettingToggle
                 settingKey="isImmersive"
                 checked={store.isImmersive}
                 setter={store.setIsImmersive}
+              />
+            </SettingRow>
+            <SettingRow
+              label="Show Tooltips"
+              description="Display hover hints on controls."
+            >
+              <SettingToggle
+                settingKey="showTooltips"
+                checked={store.showTooltips}
+                setter={store.setShowTooltips}
               />
             </SettingRow>
           </SettingSection>
