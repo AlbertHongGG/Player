@@ -13,7 +13,7 @@ import { useVideoStore } from "../../store/videoStore";
 import { useNotifyStore } from "../../store/notifyStore";
 import { commands, Episode } from "../../types/bindings";
 import { Tooltip } from "../ui/Tooltip";
-import { formatDate } from "../../utils/time";
+import { formatDateTime } from "../../utils/time";
 
 export const PlaylistSidebar: React.FC = () => {
   const {
@@ -222,7 +222,7 @@ export const PlaylistSidebar: React.FC = () => {
                         {ep.published_at && (
                           <div className="flex items-center gap-1 text-[10px] text-gray-500 pl-8">
                             <Calendar size={10} />
-                            <span>{formatDate(ep.published_at)}</span>
+                            <span>{formatDateTime(ep.published_at)}</span>
                           </div>
                         )}
                       </button>

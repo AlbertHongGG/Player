@@ -59,8 +59,20 @@ impl Anime1Parser {
         let apireq_sel = Selector::parse("[data-apireq]")
             .map_err(|e| ProviderError::Parse(e.to_string()))?;
 
-        let mut episodes = Vec::new();
-        let mut payloads = Vec::new();
+        struct ParsedRawPlayer {
+            player_index: u32,
+            raw_payload: Anime1Payload,
+        }
+
+        struct ParsedArticle {
+            article_id: String,
+            title: String,
+            article_url: Option<String>,
+            published_at: Option<String>,
+            raw_players: Vec<ParsedRawPlayer>,
+        }
+
+        let mut parsed_articles: Vec<ParsedArticle> = Vec::new();
 
         for article in document.select(&article_sel) {
             let article_id = article.value().attr("id").unwrap_or("unknown_article").to_string();
@@ -78,23 +90,22 @@ impl Anime1Parser {
                 ep_title = article_id.clone();
             }
 
-            // Date (prefer clean text representation, or sanitize ISO string to YYYY-MM-DD)
+            // Date: preserve full canonical timestamp
             let published_at = article
                 .select(&date_sel)
                 .next()
-                .map(|el| {
-                    let text = el.text().collect::<String>().trim().to_string();
-                    if !text.is_empty() {
-                        text
-                    } else if let Some(dt) = el.value().attr("datetime") {
-                        dt.split('T').next().unwrap_or(dt).trim().to_string()
-                    } else {
-                        String::new()
-                    }
-                })
-                .filter(|s| !s.is_empty());
+                .and_then(|el| {
+                    el.value()
+                        .attr("datetime")
+                        .map(|s| s.trim().to_string())
+                        .or_else(|| {
+                            let t = el.text().collect::<String>().trim().to_string();
+                            if t.is_empty() { None } else { Some(t) }
+                        })
+                });
 
-            // Players in this article
+            // Extract players in this article in top-to-bottom document order
+            let mut raw_players = Vec::new();
             let mut player_index: u32 = 1;
             for req_el in article.select(&apireq_sel) {
                 if let Some(raw_req) = req_el.value().attr("data-apireq") {
@@ -111,37 +122,58 @@ impl Anime1Parser {
                         }
                     };
 
-                    let ep_id = if player_index == 1 {
-                        format!("{}_{}", article_id, payload.e)
-                    } else {
-                        format!("{}_{}_p{}", article_id, payload.e, player_index)
-                    };
-
-                    let final_title = if player_index > 1 {
-                        format!("{} (Part {})", ep_title, player_index)
-                    } else {
-                        ep_title.clone()
-                    };
-
-                    payloads.push((ep_id.clone(), payload));
-
-                    episodes.push(Episode {
-                        id: ep_id,
-                        title: final_title,
-                        published_at: published_at.clone(),
-                        article_url: article_url.clone(),
+                    raw_players.push(ParsedRawPlayer {
                         player_index,
-                        provider_id: "anime1".to_string(),
+                        raw_payload: payload,
                     });
-
                     player_index += 1;
                 }
             }
+
+            parsed_articles.push(ParsedArticle {
+                article_id,
+                title: ep_title,
+                article_url,
+                published_at,
+                raw_players,
+            });
         }
 
         // Anime1 lists articles in reverse chronological order (newest on top).
-        // Reverse so that Episode 01 appears first in chronological order.
-        episodes.reverse();
+        // Reverse ARTICLES so that Episode 01 appears first in chronological order,
+        // while strictly preserving the ascending natural order of players within each article!
+        parsed_articles.reverse();
+
+        let mut episodes = Vec::new();
+        let mut payloads = Vec::new();
+
+        for article in parsed_articles {
+            let total_players = article.raw_players.len();
+            for player in article.raw_players {
+                let ep_id = if player.player_index == 1 {
+                    format!("{}_{}", article.article_id, player.raw_payload.e)
+                } else {
+                    format!("{}_{}_p{}", article.article_id, player.raw_payload.e, player.player_index)
+                };
+
+                let final_title = if total_players > 1 {
+                    format!("{} (Part {})", article.title, player.player_index)
+                } else {
+                    article.title.clone()
+                };
+
+                payloads.push((ep_id.clone(), player.raw_payload));
+
+                episodes.push(Episode {
+                    id: ep_id,
+                    title: final_title,
+                    published_at: article.published_at.clone(),
+                    article_url: article.article_url.clone(),
+                    player_index: player.player_index,
+                    provider_id: "anime1".to_string(),
+                });
+            }
+        }
 
         Ok((
             Playlist {
@@ -175,7 +207,10 @@ mod tests {
                 </header>
                 <div class="entry-content">
                     <div class="vjscontainer">
-                        <div id="vjs-s8obg" data-apireq="%7B%22c%22%3A%222256%22%2C%22e%22%3A%22sp-episode0%22%2C%22t%22%3A1788693678%2C%22p%22%3A5%2C%22s%22%3A%22aaee3d46281afa901f42011e73a5fbfc%22%7D"></div>
+                        <div id="vjs-1" data-apireq="%7B%22c%22%3A%222256%22%2C%22e%22%3A%22sp-episode0%22%2C%22t%22%3A1788693678%2C%22p%22%3A5%2C%22s%22%3A%22aaee3d46281afa901f42011e73a5fbfc%22%7D"></div>
+                    </div>
+                    <div class="vjscontainer">
+                        <div id="vjs-2" data-apireq="%7B%22c%22%3A%222256%22%2C%22e%22%3A%22sp-horacamp%22%2C%22t%22%3A1788693678%2C%22p%22%3A5%2C%22s%22%3A%22bbbb3d46281afa901f42011e73a5fbfc%22%7D"></div>
                     </div>
                 </div>
             </article>
@@ -198,13 +233,18 @@ mod tests {
         let (playlist, payloads) =
             Anime1Parser::parse_html("https://anime1.me/category/sample", html).unwrap();
         assert_eq!(playlist.title, "搖曳露營△");
-        assert_eq!(playlist.episodes.len(), 2);
-        assert_eq!(payloads.len(), 2);
+        assert_eq!(playlist.episodes.len(), 3);
+        assert_eq!(payloads.len(), 3);
 
-        // Episode 12 is first because of reverse chronological sort
+        // Episode 12 is first (chronological order)
         assert_eq!(playlist.episodes[0].title, "搖曳露營△ [12]");
 
-        // BD特典SP is second
-        assert_eq!(playlist.episodes[1].title, "搖曳露營△ [BD特典SP]");
+        // BD特典SP Part 1 is second
+        assert_eq!(playlist.episodes[1].title, "搖曳露營△ [BD特典SP] (Part 1)");
+        assert_eq!(playlist.episodes[1].player_index, 1);
+
+        // BD特典SP Part 2 is third
+        assert_eq!(playlist.episodes[2].title, "搖曳露營△ [BD特典SP] (Part 2)");
+        assert_eq!(playlist.episodes[2].player_index, 2);
     }
 }

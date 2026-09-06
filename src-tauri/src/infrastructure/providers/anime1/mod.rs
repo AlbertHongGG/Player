@@ -82,6 +82,9 @@ mod tests {
 
         assert!(!playlist.episodes.is_empty(), "Expected episodes to be found");
         println!("Found {} episodes for {}", playlist.episodes.len(), playlist.title);
+        for (i, ep) in playlist.episodes.iter().enumerate() {
+            println!("  [{}] {} | {:?}", i + 1, ep.title, ep.published_at);
+        }
 
         let first_ep = &playlist.episodes[0];
         println!("Resolving first episode: {} ({})", first_ep.title, first_ep.id);
