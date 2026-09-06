@@ -63,7 +63,8 @@ export function useVideoHotkeys({ videoRef, playerWrapperRef }: UseVideoHotkeysP
 
       if (e.key === "ArrowLeft") {
         e.preventDefault();
-        const newTime = Math.max(0, videoRef.current.currentTime - 1);
+        const step = e.ctrlKey || e.metaKey ? 5 : 1;
+        const newTime = Math.max(0, videoRef.current.currentTime - step);
         videoRef.current.currentTime = newTime;
         setCurrentTime(newTime);
         return;
@@ -71,7 +72,9 @@ export function useVideoHotkeys({ videoRef, playerWrapperRef }: UseVideoHotkeysP
 
       if (e.key === "ArrowRight") {
         e.preventDefault();
-        const newTime = Math.min(state.duration, videoRef.current.currentTime + 1);
+        const step = e.ctrlKey || e.metaKey ? 5 : 1;
+        const maxDuration = state.duration || videoRef.current.duration || 0;
+        const newTime = Math.min(maxDuration, videoRef.current.currentTime + step);
         videoRef.current.currentTime = newTime;
         setCurrentTime(newTime);
         return;

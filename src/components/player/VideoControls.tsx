@@ -77,7 +77,7 @@ export const VideoControls: React.FC = () => {
 
         {/* Center: Playback Controls */}
         <div className="w-1/3 flex items-center justify-center gap-3 text-white/40">
-          <Tooltip content="-5s">
+          <Tooltip content="-5s (Ctrl+←)">
             <button
               onClick={() => skipTime(-5)}
               className="hover:text-white transition-colors p-1 focus:outline-none"
@@ -86,7 +86,7 @@ export const VideoControls: React.FC = () => {
             </button>
           </Tooltip>
 
-          <Tooltip content="-1s">
+          <Tooltip content="-1s (←)">
             <button
               onClick={() => skipTime(-1)}
               className="hover:text-white transition-colors p-1 focus:outline-none"
@@ -95,7 +95,7 @@ export const VideoControls: React.FC = () => {
             </button>
           </Tooltip>
 
-          <Tooltip content={isPlaying ? "Pause" : "Play"}>
+          <Tooltip content={isPlaying ? "Pause (Space)" : "Play (Space)"}>
             <button
               onClick={handlePlayPause}
               className="w-8 h-8 text-white/90 hover:text-[#facc15] transition-colors flex items-center justify-center focus:outline-none mx-1"
@@ -108,7 +108,7 @@ export const VideoControls: React.FC = () => {
             </button>
           </Tooltip>
 
-          <Tooltip content="+1s">
+          <Tooltip content="+1s (→)">
             <button
               onClick={() => skipTime(1)}
               className="hover:text-white transition-colors p-1 focus:outline-none"
@@ -117,7 +117,7 @@ export const VideoControls: React.FC = () => {
             </button>
           </Tooltip>
 
-          <Tooltip content="+5s">
+          <Tooltip content="+5s (Ctrl+→)">
             <button
               onClick={() => skipTime(5)}
               className="hover:text-white transition-colors p-1 focus:outline-none"

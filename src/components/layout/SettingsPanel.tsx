@@ -33,16 +33,16 @@ export const SettingsPanel: React.FC = () => {
                 <kbd className="px-2 py-1 bg-white/10 rounded font-mono text-[#facc15]">Space</kbd>
               </div>
               <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/5">
-                <span className="text-gray-300">Toggle Fullscreen</span>
-                <kbd className="px-2 py-1 bg-white/10 rounded font-mono text-[#facc15]">Enter</kbd>
-              </div>
-              <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/5">
-                <span className="text-gray-300">Exit Fullscreen</span>
-                <kbd className="px-2 py-1 bg-white/10 rounded font-mono text-[#facc15]">Escape</kbd>
+                <span className="text-gray-300">Toggle / Exit Fullscreen</span>
+                <kbd className="px-2 py-1 bg-white/10 rounded font-mono text-[#facc15]">Enter / Esc</kbd>
               </div>
               <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/5">
                 <span className="text-gray-300">Seek -1s / +1s</span>
                 <kbd className="px-2 py-1 bg-white/10 rounded font-mono text-[#facc15]">← / →</kbd>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/5">
+                <span className="text-gray-300">Seek -5s / +5s</span>
+                <kbd className="px-2 py-1 bg-white/10 rounded font-mono text-[#facc15]">Ctrl + ← / →</kbd>
               </div>
               <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/5">
                 <span className="text-gray-300">Playback Speed -0.1x / +0.1x</span>
