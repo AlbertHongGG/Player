@@ -8,20 +8,12 @@ import { VideoEmptyState } from "./VideoEmptyState";
 import { Loader2 } from "lucide-react";
 import { commands } from "../../types/bindings";
 import { useNotifyStore } from "../../store/notifyStore";
+import { useUiStore } from "../../store/uiStore";
 
-interface VideoPlayerProps {
-  isControlsVisible?: boolean;
-  onControlsHoverChange?: (hovered: boolean) => void;
-  isCursorHidden?: boolean;
-}
-
-export const VideoPlayer: React.FC<VideoPlayerProps> = ({
-  isControlsVisible = true,
-  onControlsHoverChange,
-  isCursorHidden = false,
-}) => {
+export const VideoPlayer: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerWrapperRef = useRef<HTMLDivElement>(null);
+  const { isCursorHidden, isNearBottom, isBottomHovered, setIsBottomHovered } = useUiStore();
 
   const {
     videoUrl,
@@ -39,9 +31,11 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     setIsLoadingStream,
   } = useVideoStore();
 
-  const { playlist, selectedEpisodeId, selectEpisode } = usePlaylistStore();
+  const { playlist, selectedEpisodeId, selectEpisode, isSidebarOpen } = usePlaylistStore();
   const { autoPlayNext, isImmersive } = useSettingsStore();
   const { show } = useNotifyStore();
+
+  const isControlsVisible = (!isImmersive && !isFullscreen) || isNearBottom || isBottomHovered;
 
   // Attach global keyboard shortcuts
   useVideoHotkeys({ videoRef, playerWrapperRef });
@@ -176,20 +170,20 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           {/* Controls Bar */}
           {isFullscreen || isImmersive ? (
             <div
-              className={`absolute bottom-0 left-0 w-full z-50 transition-all duration-300 ease-out ${
+              className={`absolute bottom-0 left-0 z-40 transition-transform duration-300 ease-out ${
+                isSidebarOpen && isImmersive ? "right-[340px]" : "w-full"
+              } ${
                 isControlsVisible
                   ? "translate-y-0 opacity-100 pointer-events-auto"
                   : "translate-y-full opacity-0 pointer-events-none"
               }`}
-              onMouseEnter={() => onControlsHoverChange?.(true)}
-              onMouseLeave={() => onControlsHoverChange?.(false)}
+              onMouseEnter={() => setIsBottomHovered(true)}
+              onMouseLeave={() => setIsBottomHovered(false)}
             >
-              <div className="w-full bg-gradient-to-t from-black/95 via-black/70 to-transparent pt-8 backdrop-blur-sm">
-                <VideoControls />
-              </div>
+              <VideoControls />
             </div>
           ) : (
-            <div className="shrink-0 z-40 bg-black">
+            <div className="shrink-0 z-30 bg-black">
               <VideoControls />
             </div>
           )}

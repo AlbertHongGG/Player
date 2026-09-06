@@ -136,8 +136,8 @@ export const PlaylistSidebar: React.FC = () => {
             transition={{ duration: 0.25, ease: "easeOut" }}
             className={
               isImmersive
-                ? "absolute top-0 right-0 h-full w-[340px] bg-[#121212]/95 backdrop-blur-xl border-l border-white/10 shadow-2xl flex flex-col overflow-hidden z-40 select-none"
-                : "h-full bg-[#121212] border-l border-white/10 flex flex-col overflow-hidden shrink-0 z-20 select-none"
+                ? "absolute top-0 right-0 h-full w-[340px] bg-[#121212]/95 backdrop-blur-xl border-l border-white/10 shadow-2xl flex flex-col overflow-hidden z-50 select-none"
+                : "h-full bg-[#121212] border-l border-white/10 flex flex-col overflow-hidden shrink-0 z-30 select-none"
             }
           >
           {/* Header & URL Input */}
@@ -202,7 +202,7 @@ export const PlaylistSidebar: React.FC = () => {
           {/* Episode List */}
           <div className="flex-1 overflow-hidden flex flex-col">
             {playlist ? (
-              <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-1.5">
+              <div className="flex-1 overflow-y-auto custom-scrollbar p-3 pb-12 space-y-1.5">
                   {playlist.episodes.map((ep, idx) => {
                     const isSelected = selectedEpisodeId === ep.id;
                     return (

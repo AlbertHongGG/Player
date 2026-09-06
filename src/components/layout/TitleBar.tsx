@@ -5,25 +5,19 @@ import { Minus, Square, X, Maximize, Settings, PanelRightClose, PanelRightOpen, 
 import { Tooltip } from "../ui/Tooltip";
 import { usePlaylistStore } from "../../store/playlistStore";
 import { useSettingsStore } from "../../store/settingsStore";
+import { useUiStore } from "../../store/uiStore";
 import { useNotifyStore } from "../../store/notifyStore";
 
-interface TitleBarProps {
-  isFloating?: boolean;
-  isVisible?: boolean;
-  onHoverChange?: (hovered: boolean) => void;
-}
-
-export const TitleBar: React.FC<TitleBarProps> = ({
-  isFloating = false,
-  isVisible = true,
-  onHoverChange,
-}) => {
+export const TitleBar: React.FC = () => {
   const [isMaximized, setIsMaximized] = useState(false);
   const appWindow = getCurrentWindow();
 
   const { isSidebarOpen, toggleSidebar } = usePlaylistStore();
   const { isImmersive, toggleImmersive } = useSettingsStore();
+  const { isNearTop, isTopHovered, setIsTopHovered } = useUiStore();
   const { show } = useNotifyStore();
+
+  const isVisible = !isImmersive || isNearTop || isTopHovered;
 
   useEffect(() => {
     const checkMaximized = async () => {
@@ -82,16 +76,16 @@ export const TitleBar: React.FC<TitleBarProps> = ({
   return (
     <div
       data-tauri-drag-region
-      onMouseEnter={() => onHoverChange?.(true)}
-      onMouseLeave={() => onHoverChange?.(false)}
+      onMouseEnter={() => setIsTopHovered(true)}
+      onMouseLeave={() => setIsTopHovered(false)}
       className={
-        isFloating
-          ? `fixed top-0 left-0 w-full h-[48px] z-50 transition-all duration-300 ease-out select-none px-3 flex items-center ${
+        isImmersive
+          ? `fixed top-0 left-0 w-full h-[48px] z-40 bg-[#0a0a0a]/85 backdrop-blur-md border-b border-white/10 shadow-lg transition-transform duration-300 ease-out select-none px-3 flex items-center ${
               isVisible
-                ? "translate-y-0 opacity-100 bg-gradient-to-b from-black/90 via-black/50 to-transparent backdrop-blur-md pointer-events-auto"
+                ? "translate-y-0 opacity-100 pointer-events-auto"
                 : "-translate-y-full opacity-0 pointer-events-none"
             }`
-          : "h-[48px] w-full flex items-center bg-black/60 backdrop-blur-md select-none border-b border-white/5 z-50 absolute top-0 left-0 px-3"
+          : "h-[48px] w-full flex items-center bg-[#0a0a0a]/85 backdrop-blur-md select-none border-b border-white/5 z-40 absolute top-0 left-0 px-3"
       }
     >
       {/* Left Section: Sidebar Toggle */}

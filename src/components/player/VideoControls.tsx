@@ -45,7 +45,7 @@ export const VideoControls: React.FC = () => {
   };
 
   return (
-    <div className="w-full h-[72px] flex flex-col justify-center bg-[#080808] border-t border-white/5 select-none px-6 gap-2">
+    <div className="w-full h-[72px] flex flex-col justify-center bg-[#0a0a0a]/90 backdrop-blur-md border-t border-white/10 shadow-2xl select-none px-6 gap-2">
       {/* Top Row: Progress Bar */}
       <div className="w-full flex items-center h-4" onWheel={handleWheel}>
         <Slider.Root
