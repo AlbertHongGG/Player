@@ -19,7 +19,8 @@
         "transparent": true,
         "resizable": true,
         "minWidth": 640,
-        "minHeight": 400
+        "minHeight": 400,
+        "additionalBrowserArgs": "--disable-features=AudioServiceOutOfProcess,AudioServiceSandbox"
       }
     ],
     "security": {
