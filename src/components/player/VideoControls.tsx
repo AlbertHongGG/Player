@@ -13,9 +13,12 @@ import {
 import * as Slider from "@radix-ui/react-slider";
 import { formatTime } from "../../utils/time";
 import { Tooltip } from "../ui/Tooltip";
+import { useTimelinePreview } from "../../hooks/useTimelinePreview";
+import { TimelinePreviewCard } from "./preview/TimelinePreviewCard";
 
 export const VideoControls: React.FC = () => {
   const {
+    videoUrl,
     isPlaying,
     currentTime,
     duration,
@@ -25,6 +28,18 @@ export const VideoControls: React.FC = () => {
     setVolume,
     setSeekToTime,
   } = useVideoStore();
+
+  const {
+    trackRef,
+    containerRef,
+    isHovering,
+    hoverTime,
+    anchorX,
+    previewFrame,
+    isLoading,
+    isEnabled,
+    handlers,
+  } = useTimelinePreview({ videoUrl, duration });
 
   const handlePlayPause = () => setIsPlaying(!isPlaying);
 
@@ -45,9 +60,26 @@ export const VideoControls: React.FC = () => {
   };
 
   return (
-    <div className="w-full h-[72px] flex flex-col justify-center bg-[#0a0a0a]/90 backdrop-blur-md border-t border-white/10 shadow-2xl select-none px-6 gap-2">
+    <div
+      ref={containerRef}
+      className="w-full h-[72px] flex flex-col justify-center bg-[#0a0a0a]/90 backdrop-blur-md border-t border-white/10 shadow-2xl select-none px-6 gap-2"
+    >
       {/* Top Row: Progress Bar */}
-      <div className="w-full flex items-center h-4" onWheel={handleWheel}>
+      <div
+        ref={trackRef}
+        className="w-full relative flex items-center h-4"
+        onWheel={handleWheel}
+        {...handlers}
+      >
+        <TimelinePreviewCard
+          isVisible={isHovering && duration > 0}
+          time={hoverTime}
+          anchorX={anchorX}
+          frame={previewFrame}
+          isLoading={isLoading}
+          showThumbnail={isEnabled}
+        />
+
         <Slider.Root
           className="relative flex items-center select-none touch-none w-full h-full group/slider cursor-pointer"
           value={[currentTime]}

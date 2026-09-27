@@ -6,10 +6,12 @@ export interface SettingsStore {
   autoPlayNext: boolean;
   isImmersive: boolean;
   showTooltips: boolean;
+  enableTimelineHoverPreview: boolean;
   setAutoPlayNext: (val: boolean) => void;
   setIsImmersive: (val: boolean) => void;
   toggleImmersive: () => void;
   setShowTooltips: (val: boolean) => void;
+  setEnableTimelineHoverPreview: (val: boolean) => void;
 }
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -18,10 +20,12 @@ export const useSettingsStore = create<SettingsStore>()(
       autoPlayNext: true,
       isImmersive: false,
       showTooltips: true,
+      enableTimelineHoverPreview: true,
       setAutoPlayNext: (autoPlayNext) => set({ autoPlayNext }),
       setIsImmersive: (isImmersive) => set({ isImmersive }),
       toggleImmersive: () => set((state) => ({ isImmersive: !state.isImmersive })),
       setShowTooltips: (showTooltips) => set({ showTooltips }),
+      setEnableTimelineHoverPreview: (enableTimelineHoverPreview) => set({ enableTimelineHoverPreview }),
     }),
     {
       name: "anime_player_settings",

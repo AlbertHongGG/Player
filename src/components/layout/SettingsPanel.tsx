@@ -43,6 +43,16 @@ export const SettingsPanel: React.FC = () => {
                 setter={store.setShowTooltips}
               />
             </SettingRow>
+            <SettingRow
+              label="Timeline Preview"
+              description="Show video thumbnail on progress bar hover."
+            >
+              <SettingToggle
+                settingKey="enableTimelineHoverPreview"
+                checked={store.enableTimelineHoverPreview}
+                setter={store.setEnableTimelineHoverPreview}
+              />
+            </SettingRow>
           </SettingSection>
 
           {/* Keyboard Shortcuts Reference */}
