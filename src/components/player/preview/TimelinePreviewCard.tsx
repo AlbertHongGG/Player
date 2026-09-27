@@ -2,27 +2,30 @@ import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ThumbnailFrame } from "../../../services/player/preview";
 import { formatTime } from "../../../utils/time";
+import { DoubleBufferedPreviewCanvas } from "./DoubleBufferedPreviewCanvas";
 
 interface TimelinePreviewCardProps {
   isVisible: boolean;
   time: number;
   anchorX: number;
   frame: ThumbnailFrame | null;
-  isLoading: boolean;
   showThumbnail?: boolean;
 }
 
 /**
  * YouTube-style Minimalist Timeline Hover Preview.
- * Renders the clean thumbnail frame and centered time code directly without bulky outer containers or arrows.
- * Decouples spatial translation from animation to guarantee rock-solid center alignment.
+ *
+ * Design Architecture:
+ * 1. Zero-Distraction Aesthetics: No yellow indicators, no loading spinners, no skeleton flashes.
+ * 2. YouTube Double-Buffered Frame Retention: Uses DoubleBufferedPreviewCanvas to retain
+ *    previous frame indefinitely until the new one arrives.
+ * 3. 60fps Decoupled Telemetry: Instant time code display updating at cursor speed.
  */
 export const TimelinePreviewCard: React.FC<TimelinePreviewCardProps> = ({
   isVisible,
   time,
   anchorX,
   frame,
-  isLoading,
   showThumbnail = true,
 }) => {
   return (
@@ -44,23 +47,9 @@ export const TimelinePreviewCard: React.FC<TimelinePreviewCardProps> = ({
           >
             {showThumbnail ? (
               <>
-                {/* 1. Pure YouTube-Style Thumbnail Frame */}
+                {/* 1. Pure YouTube-Style Thumbnail Frame with Seamless Frame Retention */}
                 <div className="w-[160px] h-[90px] bg-black rounded-[4px] overflow-hidden relative border border-white/30 shadow-[0_8px_24px_rgba(0,0,0,0.85)]">
-                  {frame ? (
-                    <img
-                      src={frame.imageUrl}
-                      alt="Timeline preview"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-neutral-900/90 animate-pulse flex items-center justify-center text-white/30 text-[11px] font-mono">
-                      Loading...
-                    </div>
-                  )}
-
-                  {isLoading && (
-                    <div className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[#facc15] animate-ping" />
-                  )}
+                  <DoubleBufferedPreviewCanvas frame={frame} width={160} height={90} />
                 </div>
 
                 {/* 2. Direct Centered Timestamp Badge */}

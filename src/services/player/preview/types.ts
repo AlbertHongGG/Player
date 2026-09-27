@@ -1,6 +1,7 @@
 export interface ThumbnailFrame {
   timestamp: number;
-  imageUrl: string;
+  bitmap?: ImageBitmap;
+  imageUrl?: string;
   width: number;
   height: number;
 }
@@ -8,7 +9,7 @@ export interface ThumbnailFrame {
 export interface ThumbnailOptions {
   width?: number; // Target CSS display width (default: 160)
   renderScale?: number; // Physical pixel multiplier for HiDPI/Retina (default: dynamic DPR >= 2)
-  format?: "image/webp" | "image/jpeg"; // Image encoding format (default: "image/webp")
+  format?: "image/webp" | "image/jpeg"; // Image encoding format fallback
   quality?: number; // Image quality 0.0 - 1.0 (default: 0.92)
   quantizeInterval?: number; // Timestamp quantization bucket in seconds (default: 0.5)
 }
@@ -21,7 +22,7 @@ export interface IThumbnailProvider {
 
   /**
    * Captures a single frame at the specified timestamp.
-   * Supports AbortSignal for cancellation.
+   * Supports AbortSignal for preemption and cancellation.
    */
   captureFrame(timestamp: number, signal?: AbortSignal): Promise<ThumbnailFrame | null>;
 

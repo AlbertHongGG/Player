@@ -20,9 +20,7 @@ export class TimelinePreviewService {
     const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
     this.provider = new Html5VideoThumbnailEngine({
       width: 160,
-      renderScale: Math.max(2.0, dpr),
-      format: "image/webp",
-      quality: 0.92,
+      renderScale: Math.min(2.0, Math.max(1.5, dpr)),
     });
     this.scheduler = new PreviewScheduler(this.provider, this.cache, { quantizeInterval: 0.5 });
   }

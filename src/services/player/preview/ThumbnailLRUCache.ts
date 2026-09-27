@@ -2,7 +2,8 @@ import { ThumbnailFrame } from "./types";
 
 /**
  * High-performance, memory-safe Least Recently Used (LRU) cache for video thumbnail frames.
- * Automatically revokes Blob Object URLs upon eviction or clear to guarantee zero memory leaks.
+ * Safely releases ImageBitmap GPU memory via bitmap.close() and revokes Blob Object URLs
+ * upon eviction or clear to guarantee zero memory/VRAM leaks.
  */
 export class ThumbnailLRUCache {
   private readonly capacity: number;
@@ -35,13 +36,13 @@ export class ThumbnailLRUCache {
 
   /**
    * Adds or updates a frame in the cache.
-   * If capacity is exceeded, the least recently used frame is evicted and its Blob URL revoked.
+   * If capacity is exceeded, the least recently used frame is evicted and its resources freed.
    */
   public set(key: number, frame: ThumbnailFrame): void {
     if (this.cache.has(key)) {
       const oldFrame = this.cache.get(key);
       if (oldFrame && oldFrame !== frame) {
-        this.revokeFrameUrl(oldFrame);
+        this.disposeFrame(oldFrame);
       }
       this.cache.delete(key);
     } else if (this.cache.size >= this.capacity) {
@@ -50,7 +51,7 @@ export class ThumbnailLRUCache {
       if (oldestKey !== undefined) {
         const oldestFrame = this.cache.get(oldestKey);
         if (oldestFrame) {
-          this.revokeFrameUrl(oldestFrame);
+          this.disposeFrame(oldestFrame);
         }
         this.cache.delete(oldestKey);
       }
@@ -60,11 +61,11 @@ export class ThumbnailLRUCache {
   }
 
   /**
-   * Clears the entire cache, explicitly revoking all stored Blob URLs.
+   * Clears the entire cache, explicitly releasing all bitmaps and revoking Blob URLs.
    */
   public clear(): void {
     for (const frame of this.cache.values()) {
-      this.revokeFrameUrl(frame);
+      this.disposeFrame(frame);
     }
     this.cache.clear();
   }
@@ -77,9 +78,17 @@ export class ThumbnailLRUCache {
   }
 
   /**
-   * Revokes the Object URL if it was created via URL.createObjectURL.
+   * Disposes of GPU VRAM (ImageBitmap) and browser memory (Blob URL).
    */
-  private revokeFrameUrl(frame: ThumbnailFrame): void {
+  private disposeFrame(frame: ThumbnailFrame): void {
+    if (frame.bitmap && typeof frame.bitmap.close === "function") {
+      try {
+        frame.bitmap.close();
+      } catch (e) {
+        // already closed or detached
+      }
+    }
+
     if (frame.imageUrl && frame.imageUrl.startsWith("blob:")) {
       try {
         URL.revokeObjectURL(frame.imageUrl);

@@ -4,11 +4,13 @@ import { ThumbnailLRUCache } from "./ThumbnailLRUCache";
 export type FrameReadyCallback = (frame: ThumbnailFrame) => void;
 
 /**
- * High-performance concurrency scheduler for timeline preview extraction.
- * Implements:
- * 1. Timestamp Quantization (dramatically improves LRU cache hit rate).
- * 2. Latest-Wins Queue (drops stale intermediate frames during fast scrubs).
- * 3. Non-blocking Async Dispatch (keeps main UI thread silky smooth at 60fps).
+ * Preemptive Concurrency Scheduler for timeline preview extraction.
+ *
+ * Performance Architecture:
+ * 1. Preemptive In-Flight Cancellation: When a new mouse position arrives, any pending or in-flight
+ *    video seek is immediately aborted via AbortController, completely eliminating Head-of-Line blocking.
+ * 2. Timestamp Quantization: Buckets timestamps to maximize LRU cache hit rate during continuous hover.
+ * 3. Latest-Wins Atomic Slot: Always executes the most recent user cursor position.
  */
 export class PreviewScheduler {
   private readonly provider: IThumbnailProvider;
@@ -16,6 +18,7 @@ export class PreviewScheduler {
   private quantizeInterval: number;
 
   private isProcessing = false;
+  private currentExecutingTimestamp: number | null = null;
   private nextPendingTarget: { timestamp: number; callback: FrameReadyCallback } | null = null;
   private activeAbortController: AbortController | null = null;
 
@@ -39,25 +42,30 @@ export class PreviewScheduler {
   /**
    * Schedules a frame extraction for the specified timestamp.
    * If already cached, immediately invokes the callback.
-   * If busy extracting, registers as the newest pending target (superseding older pending ones).
+   * If busy extracting a different frame, preemptively aborts it and queues the newest target.
    */
   public requestFrame(rawTimestamp: number, onFrameReady: FrameReadyCallback): void {
     const quantized = this.quantize(rawTimestamp);
 
-    // 1. Instant Cache Hit
+    // 1. Instant Cache Hit (0ms)
     const cached = this.cache.get(quantized);
     if (cached) {
       onFrameReady(cached);
       return;
     }
 
-    // 2. Queue into Latest-Wins slot
+    // 2. Queue into Latest-Wins single slot
     this.nextPendingTarget = {
       timestamp: quantized,
       callback: onFrameReady,
     };
 
-    // 3. Trigger processing loop if idle
+    // 3. Preemptive cancellation: If an in-flight seek is working on a DIFFERENT frame, abort it!
+    if (this.isProcessing && this.currentExecutingTimestamp !== quantized && this.activeAbortController) {
+      this.activeAbortController.abort();
+    }
+
+    // 4. Trigger processing loop if idle
     if (!this.isProcessing) {
       this.drainQueue();
     }
@@ -68,6 +76,7 @@ export class PreviewScheduler {
    */
   public cancel(): void {
     this.nextPendingTarget = null;
+    this.currentExecutingTimestamp = null;
     if (this.activeAbortController) {
       this.activeAbortController.abort();
       this.activeAbortController = null;
@@ -76,7 +85,7 @@ export class PreviewScheduler {
   }
 
   private async drainQueue(): Promise<void> {
-    if (this.isProcessing || !this.nextPendingTarget) {
+    if (this.isProcessing) {
       return;
     }
 
@@ -84,24 +93,24 @@ export class PreviewScheduler {
 
     while (this.nextPendingTarget) {
       const currentTask = this.nextPendingTarget;
-      this.nextPendingTarget = null; // Cleared so newer mouse moves can overwrite
+      this.nextPendingTarget = null; // Cleared so subsequent mouse moves can register
 
-      // Re-check cache in case it was populated
+      // Check cache again in case another operation populated it
       const cached = this.cache.get(currentTask.timestamp);
       if (cached) {
         currentTask.callback(cached);
         continue;
       }
 
+      this.currentExecutingTimestamp = currentTask.timestamp;
       this.activeAbortController = new AbortController();
+      const signal = this.activeAbortController.signal;
 
       try {
-        const frame = await this.provider.captureFrame(
-          currentTask.timestamp,
-          this.activeAbortController.signal
-        );
+        const frame = await this.provider.captureFrame(currentTask.timestamp, signal);
 
-        if (frame) {
+        // Only commit if this task wasn't aborted midway
+        if (frame && !signal.aborted) {
           this.cache.set(currentTask.timestamp, frame);
           currentTask.callback(frame);
         }
@@ -111,6 +120,7 @@ export class PreviewScheduler {
         }
       } finally {
         this.activeAbortController = null;
+        this.currentExecutingTimestamp = null;
       }
     }
 
