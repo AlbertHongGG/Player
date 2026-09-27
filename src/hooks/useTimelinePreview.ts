@@ -1,10 +1,47 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { TimelinePreviewService, ThumbnailFrame, TimelineCoordinateService } from "../services/player/preview";
+import { TimelinePreviewEngine, PreviewFrame } from "../components/player/preview/TimelinePreviewEngine";
 import { useSettingsStore } from "../store/settingsStore";
 
 interface UseTimelinePreviewOptions {
   videoUrl: string | null;
   duration: number;
+}
+
+interface CalculateCoordinatesParams {
+  clientX: number;
+  trackRect: DOMRect;
+  containerRect: DOMRect | null;
+  duration: number;
+  previewWidth: number;
+  safeMargin?: number;
+}
+
+/**
+ * Pure mathematical boundary clamping for timeline hover preview.
+ */
+function calculateTimelineCoordinates({
+  clientX,
+  trackRect,
+  containerRect,
+  duration,
+  previewWidth,
+  safeMargin = 12,
+}: CalculateCoordinatesParams) {
+  const rawX = clientX - trackRect.left;
+  const ratio = Math.max(0, Math.min(1, rawX / trackRect.width));
+  const targetTime = ratio * duration;
+
+  const halfWidth = previewWidth / 2;
+  const minAnchorX = containerRect
+    ? containerRect.left - trackRect.left + halfWidth + safeMargin
+    : halfWidth + safeMargin;
+  const maxAnchorX = containerRect
+    ? containerRect.right - trackRect.left - halfWidth - safeMargin
+    : trackRect.width - halfWidth - safeMargin;
+
+  const clampedAnchorX = Math.max(minAnchorX, Math.min(maxAnchorX, rawX));
+
+  return { targetTime, clampedAnchorX };
 }
 
 /**
@@ -18,24 +55,24 @@ export function useTimelinePreview({ videoUrl, duration }: UseTimelinePreviewOpt
   const [hoverTime, setHoverTime] = useState(0);
   const [anchorX, setAnchorX] = useState(0);
   // Holds the active frame across moves; atomically swaps when new frame arrives
-  const [previewFrame, setPreviewFrame] = useState<ThumbnailFrame | null>(null);
+  const [previewFrame, setPreviewFrame] = useState<PreviewFrame | null>(null);
 
   const trackRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const service = TimelinePreviewService.getInstance();
+  const engine = TimelinePreviewEngine.getInstance();
 
   // Load video into preview engine when URL changes & reset frame buffer
   useEffect(() => {
     setPreviewFrame(null);
     if (videoUrl && isEnabled) {
-      service.loadVideo(videoUrl).catch(console.error);
+      engine.loadVideo(videoUrl).catch(console.error);
     }
   }, [videoUrl, isEnabled]);
 
   // Clean up pending requests on unmount
   useEffect(() => {
     return () => {
-      service.cancelPending();
+      engine.cancel();
     };
   }, []);
 
@@ -48,7 +85,7 @@ export function useTimelinePreview({ videoUrl, duration }: UseTimelinePreviewOpt
         ? containerRef.current.getBoundingClientRect()
         : null;
 
-      const { targetTime, clampedAnchorX } = TimelineCoordinateService.calculate({
+      const { targetTime, clampedAnchorX } = calculateTimelineCoordinates({
         clientX,
         trackRect,
         containerRect,
@@ -62,7 +99,7 @@ export function useTimelinePreview({ videoUrl, duration }: UseTimelinePreviewOpt
       setHoverTime(targetTime);
 
       if (isEnabled && videoUrl) {
-        service.requestFrame(targetTime, (frame) => {
+        engine.requestFrame(targetTime, (frame) => {
           setPreviewFrame(frame);
         });
       }
@@ -89,7 +126,7 @@ export function useTimelinePreview({ videoUrl, duration }: UseTimelinePreviewOpt
 
   const handleMouseLeave = useCallback(() => {
     setIsHovering(false);
-    service.cancelPending();
+    engine.cancel();
   }, []);
 
   return {

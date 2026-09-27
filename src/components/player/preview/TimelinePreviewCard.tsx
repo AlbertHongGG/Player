@@ -1,6 +1,6 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ThumbnailFrame } from "../../../services/player/preview";
+import { PreviewFrame } from "./TimelinePreviewEngine";
 import { formatTime } from "../../../utils/time";
 import { DoubleBufferedPreviewCanvas } from "./DoubleBufferedPreviewCanvas";
 
@@ -8,7 +8,7 @@ interface TimelinePreviewCardProps {
   isVisible: boolean;
   time: number;
   anchorX: number;
-  frame: ThumbnailFrame | null;
+  frame: PreviewFrame | null;
   showThumbnail?: boolean;
 }
 

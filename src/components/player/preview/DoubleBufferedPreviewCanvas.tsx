@@ -1,8 +1,8 @@
 import React, { useEffect, useRef } from "react";
-import { ThumbnailFrame } from "../../../services/player/preview";
+import { PreviewFrame } from "./TimelinePreviewEngine";
 
 interface DoubleBufferedPreviewCanvasProps {
-  frame: ThumbnailFrame | null;
+  frame: PreviewFrame | null;
   width?: number;
   height?: number;
 }
@@ -14,7 +14,6 @@ interface DoubleBufferedPreviewCanvasProps {
  * 1. Zero-Flicker Frame Retention: Retains the previous frame's pixels indefinitely until
  *    a newly decoded frame is ready, completely avoiding blank/loading flashes during scrubbing.
  * 2. Hardware Texture Transfer: Draws ImageBitmap directly to 2D context in <0.1ms with zero CPU overhead.
- * 3. Fallback support: Gracefully handles legacy imageUrl if needed.
  */
 export const DoubleBufferedPreviewCanvas: React.FC<DoubleBufferedPreviewCanvasProps> = ({
   frame,
@@ -22,7 +21,7 @@ export const DoubleBufferedPreviewCanvas: React.FC<DoubleBufferedPreviewCanvasPr
   height = 90,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const lastDrawnFrameRef = useRef<ThumbnailFrame | null>(null);
+  const lastDrawnFrameRef = useRef<PreviewFrame | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -49,19 +48,6 @@ export const DoubleBufferedPreviewCanvas: React.FC<DoubleBufferedPreviewCanvasPr
         // If bitmap was detached or closed, keep current canvas content intact
         console.warn("[DoubleBufferedPreviewCanvas] drawImage failed:", e);
       }
-      return;
-    }
-
-    // Image URL Fallback
-    if (frame.imageUrl) {
-      const img = new Image();
-      img.onload = () => {
-        if (!canvasRef.current) return;
-        const currentCtx = canvasRef.current.getContext("2d", { alpha: false });
-        currentCtx?.drawImage(img, 0, 0, canvas.width, canvas.height);
-        lastDrawnFrameRef.current = frame;
-      };
-      img.src = frame.imageUrl;
     }
   }, [frame, width, height]);
 
