@@ -156,6 +156,7 @@ impl Anime1Client {
             cookie_header,
             referer: SITE_REFERER.to_string(),
             user_agent: USER_AGENT_STR.to_string(),
+            storyboard: None,
         })
     }
 }

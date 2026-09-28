@@ -1,31 +1,30 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { PreviewFrame } from "./TimelinePreviewEngine";
+import { StoryboardTrack } from "../../../types/bindings";
 import { formatTime } from "../../../utils/time";
-import { DoubleBufferedPreviewCanvas } from "./DoubleBufferedPreviewCanvas";
+import { StoryboardViewer } from "./StoryboardViewer";
 
 interface TimelinePreviewCardProps {
   isVisible: boolean;
   time: number;
   anchorX: number;
-  frame: PreviewFrame | null;
+  track: StoryboardTrack | null;
   showThumbnail?: boolean;
 }
 
 /**
  * YouTube-style Minimalist Timeline Hover Preview.
  *
- * Design Architecture:
+ * Characteristics:
  * 1. Zero-Distraction Aesthetics: No yellow indicators, no loading spinners, no skeleton flashes.
- * 2. YouTube Double-Buffered Frame Retention: Uses DoubleBufferedPreviewCanvas to retain
- *    previous frame indefinitely until the new one arrives.
+ * 2. Instant Native Storyboard Viewer: 0ms GPU CSS sprite offset for 60fps/144fps responsiveness.
  * 3. 60fps Decoupled Telemetry: Instant time code display updating at cursor speed.
  */
 export const TimelinePreviewCard: React.FC<TimelinePreviewCardProps> = ({
   isVisible,
   time,
   anchorX,
-  frame,
+  track,
   showThumbnail = true,
 }) => {
   return (
@@ -47,9 +46,9 @@ export const TimelinePreviewCard: React.FC<TimelinePreviewCardProps> = ({
           >
             {showThumbnail ? (
               <>
-                {/* 1. Pure YouTube-Style Thumbnail Frame with Seamless Frame Retention */}
+                {/* 1. Pure YouTube-Style Thumbnail Frame with Storyboard Viewer */}
                 <div className="w-[160px] h-[90px] bg-black rounded-[4px] overflow-hidden relative border border-white/30 shadow-[0_8px_24px_rgba(0,0,0,0.85)]">
-                  <DoubleBufferedPreviewCanvas frame={frame} width={160} height={90} />
+                  <StoryboardViewer track={track} time={time} width={160} height={90} />
                 </div>
 
                 {/* 2. Direct Centered Timestamp Badge */}

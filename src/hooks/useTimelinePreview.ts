@@ -1,80 +1,26 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import { TimelinePreviewEngine, PreviewFrame } from "../components/player/preview/TimelinePreviewEngine";
+import { useState, useRef, useCallback } from "react";
 import { useSettingsStore } from "../store/settingsStore";
+import { useVideoStore } from "../store/videoStore";
+import { StoryboardEngine } from "../components/player/preview/StoryboardEngine";
 
 interface UseTimelinePreviewOptions {
-  videoUrl: string | null;
   duration: number;
 }
 
-interface CalculateCoordinatesParams {
-  clientX: number;
-  trackRect: DOMRect;
-  containerRect: DOMRect | null;
-  duration: number;
-  previewWidth: number;
-  safeMargin?: number;
-}
-
 /**
- * Pure mathematical boundary clamping for timeline hover preview.
+ * High-Performance 60fps Native Storyboard Timeline Hover Hook.
+ * Calculates exact clamped coordinates and provides active storyboard track.
  */
-function calculateTimelineCoordinates({
-  clientX,
-  trackRect,
-  containerRect,
-  duration,
-  previewWidth,
-  safeMargin = 12,
-}: CalculateCoordinatesParams) {
-  const rawX = clientX - trackRect.left;
-  const ratio = Math.max(0, Math.min(1, rawX / trackRect.width));
-  const targetTime = ratio * duration;
-
-  const halfWidth = previewWidth / 2;
-  const minAnchorX = containerRect
-    ? containerRect.left - trackRect.left + halfWidth + safeMargin
-    : halfWidth + safeMargin;
-  const maxAnchorX = containerRect
-    ? containerRect.right - trackRect.left - halfWidth - safeMargin
-    : trackRect.width - halfWidth - safeMargin;
-
-  const clampedAnchorX = Math.max(minAnchorX, Math.min(maxAnchorX, rawX));
-
-  return { targetTime, clampedAnchorX };
-}
-
-/**
- * YouTube-style Frame-Hold Timeline Hover Hook.
- * Implements persistent frame buffering to eliminate loading indicators and flicker during scrubbing.
- */
-export function useTimelinePreview({ videoUrl, duration }: UseTimelinePreviewOptions) {
+export function useTimelinePreview({ duration }: UseTimelinePreviewOptions) {
   const isEnabled = useSettingsStore((state) => state.enableTimelineHoverPreview);
+  const storyboard = useVideoStore((state) => state.storyboard);
 
   const [isHovering, setIsHovering] = useState(false);
   const [hoverTime, setHoverTime] = useState(0);
   const [anchorX, setAnchorX] = useState(0);
-  // Holds the active frame across moves; atomically swaps when new frame arrives
-  const [previewFrame, setPreviewFrame] = useState<PreviewFrame | null>(null);
 
   const trackRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const engine = TimelinePreviewEngine.getInstance();
-
-  // Load video into preview engine when URL changes & reset frame buffer
-  useEffect(() => {
-    setPreviewFrame(null);
-    if (videoUrl && isEnabled) {
-      engine.loadVideo(videoUrl).catch(console.error);
-    }
-  }, [videoUrl, isEnabled]);
-
-  // Clean up pending requests on unmount
-  useEffect(() => {
-    return () => {
-      engine.cancel();
-    };
-  }, []);
 
   const updateCoordinates = useCallback(
     (clientX: number) => {
@@ -85,7 +31,7 @@ export function useTimelinePreview({ videoUrl, duration }: UseTimelinePreviewOpt
         ? containerRef.current.getBoundingClientRect()
         : null;
 
-      const { targetTime, clampedAnchorX } = calculateTimelineCoordinates({
+      const { targetTime, clampedAnchorX } = StoryboardEngine.calculateCoordinates({
         clientX,
         trackRect,
         containerRect,
@@ -94,17 +40,10 @@ export function useTimelinePreview({ videoUrl, duration }: UseTimelinePreviewOpt
         safeMargin: 12,
       });
 
-      // Synchronous 60fps telemetry update for time and position
       setAnchorX(clampedAnchorX);
       setHoverTime(targetTime);
-
-      if (isEnabled && videoUrl) {
-        engine.requestFrame(targetTime, (frame) => {
-          setPreviewFrame(frame);
-        });
-      }
     },
-    [duration, isEnabled, videoUrl]
+    [duration, isEnabled]
   );
 
   const handleMouseEnter = useCallback(
@@ -126,7 +65,6 @@ export function useTimelinePreview({ videoUrl, duration }: UseTimelinePreviewOpt
 
   const handleMouseLeave = useCallback(() => {
     setIsHovering(false);
-    engine.cancel();
   }, []);
 
   return {
@@ -135,7 +73,7 @@ export function useTimelinePreview({ videoUrl, duration }: UseTimelinePreviewOpt
     isHovering,
     hoverTime,
     anchorX,
-    previewFrame,
+    storyboard,
     isEnabled,
     handlers: {
       onMouseEnter: handleMouseEnter,

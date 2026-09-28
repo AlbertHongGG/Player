@@ -105,7 +105,7 @@ export const VideoPlayer: React.FC = () => {
         try {
           const res = await commands.resolveEpisode(nextEpisode.provider_id, nextEpisode.id);
           if (res.status === "ok") {
-            setVideoUrl(res.data.stream_url, nextEpisode.title);
+            setVideoUrl(res.data.stream_url, nextEpisode.title, res.data.storyboard || nextEpisode.storyboard);
             setIsPlaying(true);
           }
         } catch (e) {

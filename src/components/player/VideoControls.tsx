@@ -18,7 +18,6 @@ import { TimelinePreviewCard } from "./preview/TimelinePreviewCard";
 
 export const VideoControls: React.FC = () => {
   const {
-    videoUrl,
     isPlaying,
     currentTime,
     duration,
@@ -35,10 +34,10 @@ export const VideoControls: React.FC = () => {
     isHovering,
     hoverTime,
     anchorX,
-    previewFrame,
+    storyboard,
     isEnabled,
     handlers,
-  } = useTimelinePreview({ videoUrl, duration });
+  } = useTimelinePreview({ duration });
 
   const handlePlayPause = () => setIsPlaying(!isPlaying);
 
@@ -74,7 +73,7 @@ export const VideoControls: React.FC = () => {
           isVisible={isHovering && duration > 0}
           time={hoverTime}
           anchorX={anchorX}
-          frame={previewFrame}
+          track={storyboard}
           showThumbnail={isEnabled}
         />
 

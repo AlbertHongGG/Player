@@ -45,6 +45,7 @@ pub async fn resolve_episode(
 
     let session = provider.resolve_stream(&episode).await.map_err(|e| e.to_string())?;
 
+    let storyboard = session.storyboard.clone();
     let session_id = session.session_id.clone();
     state.gateway.register_session(session).await;
 
@@ -55,6 +56,7 @@ pub async fn resolve_episode(
         stream_url,
         episode_id,
         title: episode.title,
+        storyboard,
     })
 }
 

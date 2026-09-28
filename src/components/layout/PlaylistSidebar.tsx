@@ -96,7 +96,7 @@ export const PlaylistSidebar: React.FC = () => {
     try {
       const res = await commands.resolveEpisode(episode.provider_id, episode.id);
       if (res.status === "ok") {
-        setVideoUrl(res.data.stream_url, episode.title);
+        setVideoUrl(res.data.stream_url, episode.title, res.data.storyboard || episode.storyboard);
         setIsPlaying(true);
         show(`Playing: ${episode.title}`, "success");
         if (isImmersive) {

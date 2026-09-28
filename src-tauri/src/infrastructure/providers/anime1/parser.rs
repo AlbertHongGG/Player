@@ -1,7 +1,7 @@
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 
-use crate::domain::episode::{Episode, Playlist};
+use crate::domain::episode::{Episode, Playlist, StoryboardTrack};
 use crate::domain::errors::ProviderError;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -19,7 +19,7 @@ impl Anime1Parser {
     pub fn parse_html(
         url: &str,
         html_content: &str,
-    ) -> Result<(Playlist, Vec<(String, Anime1Payload)>), ProviderError> {
+    ) -> Result<(Playlist, Vec<(String, Anime1Payload, Option<StoryboardTrack>)>), ProviderError> {
         let document = Html::parse_document(html_content);
 
         // 1. Extract Playlist Title (prioritize page-title over title tag)
@@ -62,6 +62,7 @@ impl Anime1Parser {
         struct ParsedRawPlayer {
             player_index: u32,
             raw_payload: Anime1Payload,
+            storyboard: Option<StoryboardTrack>,
         }
 
         struct ParsedArticle {
@@ -122,9 +123,24 @@ impl Anime1Parser {
                         }
                     };
 
+                    // Extract storyboard attributes (data-vid, data-tserver)
+                    let vid = req_el.value().attr("data-vid").map(|s| s.trim().to_string());
+                    let tserver = req_el.value().attr("data-tserver").map(|s| s.trim().to_string());
+                    let storyboard = match (&vid, &tserver) {
+                        (Some(v), Some(t)) if !v.is_empty() && !t.is_empty() => Some(StoryboardTrack {
+                            sprite_url: format!("https://{}.anime1.me/{}/thumbnails.jpg", t, v),
+                            tile_width: 192,
+                            tile_height: 108,
+                            columns: 10,
+                            interval_seconds: 3.0,
+                        }),
+                        _ => None,
+                    };
+
                     raw_players.push(ParsedRawPlayer {
                         player_index,
                         raw_payload: payload,
+                        storyboard,
                     });
                     player_index += 1;
                 }
@@ -162,7 +178,7 @@ impl Anime1Parser {
                     article.title.clone()
                 };
 
-                payloads.push((ep_id.clone(), player.raw_payload));
+                payloads.push((ep_id.clone(), player.raw_payload, player.storyboard.clone()));
 
                 episodes.push(Episode {
                     id: ep_id,
@@ -171,6 +187,7 @@ impl Anime1Parser {
                     article_url: article.article_url.clone(),
                     player_index: player.player_index,
                     provider_id: "anime1".to_string(),
+                    storyboard: player.storyboard,
                 });
             }
         }
@@ -207,7 +224,7 @@ mod tests {
                 </header>
                 <div class="entry-content">
                     <div class="vjscontainer">
-                        <div id="vjs-1" data-apireq="%7B%22c%22%3A%222256%22%2C%22e%22%3A%22sp-episode0%22%2C%22t%22%3A1788693678%2C%22p%22%3A5%2C%22s%22%3A%22aaee3d46281afa901f42011e73a5fbfc%22%7D"></div>
+                        <div id="vjs-1" data-apireq="%7B%22c%22%3A%222256%22%2C%22e%22%3A%22sp-episode0%22%2C%22t%22%3A1788693678%2C%22p%22%3A5%2C%22s%22%3A%22aaee3d46281afa901f42011e73a5fbfc%22%7D" data-vid="sp0" data-tserver="pt1"></div>
                     </div>
                     <div class="vjscontainer">
                         <div id="vjs-2" data-apireq="%7B%22c%22%3A%222256%22%2C%22e%22%3A%22sp-horacamp%22%2C%22t%22%3A1788693678%2C%22p%22%3A5%2C%22s%22%3A%22bbbb3d46281afa901f42011e73a5fbfc%22%7D"></div>
@@ -221,7 +238,7 @@ mod tests {
                 </header>
                 <div class="entry-content">
                     <div class="vjscontainer">
-                        <div id="vjs-12345" data-apireq="%7B%22c%22%3A%221941%22%2C%22e%22%3A%226b%22%2C%22t%22%3A1787233540%2C%22p%22%3A0%2C%22s%22%3A%22f02cd278f93df0d5c4c8916af92dddda%22%7D"></div>
+                        <div id="vjs-12345" data-apireq="%7B%22c%22%3A%221941%22%2C%22e%22%3A%226b%22%2C%22t%22%3A1787233540%2C%22p%22%3A0%2C%22s%22%3A%22f02cd278f93df0d5c4c8916af92dddda%22%7D" data-vid="krey_" data-tserver="pt2"></div>
                     </div>
                 </div>
             </article>
@@ -236,15 +253,24 @@ mod tests {
         assert_eq!(playlist.episodes.len(), 3);
         assert_eq!(payloads.len(), 3);
 
-        // Episode 12 is first (chronological order)
+        // Episode 12 is first (chronological order) and has storyboard
         assert_eq!(playlist.episodes[0].title, "搖曳露營△ [12]");
+        let sb = playlist.episodes[0].storyboard.as_ref().expect("Expected storyboard");
+        assert_eq!(sb.sprite_url, "https://pt2.anime1.me/krey_/thumbnails.jpg");
+        assert_eq!(sb.tile_width, 192);
+        assert_eq!(sb.tile_height, 108);
+        assert_eq!(sb.columns, 10);
+        assert_eq!(sb.interval_seconds, 3.0);
 
-        // BD特典SP Part 1 is second
+        // BD特典SP Part 1 has storyboard
         assert_eq!(playlist.episodes[1].title, "搖曳露營△ [BD特典SP] (Part 1)");
         assert_eq!(playlist.episodes[1].player_index, 1);
+        let sb1 = playlist.episodes[1].storyboard.as_ref().expect("Expected storyboard for part 1");
+        assert_eq!(sb1.sprite_url, "https://pt1.anime1.me/sp0/thumbnails.jpg");
 
-        // BD特典SP Part 2 is third
+        // BD特典SP Part 2 has no storyboard
         assert_eq!(playlist.episodes[2].title, "搖曳露營△ [BD特典SP] (Part 2)");
         assert_eq!(playlist.episodes[2].player_index, 2);
+        assert!(playlist.episodes[2].storyboard.is_none());
     }
 }
