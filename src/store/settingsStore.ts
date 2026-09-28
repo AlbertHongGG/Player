@@ -4,12 +4,11 @@ import { listen } from "@tauri-apps/api/event";
 
 export interface SettingsStore {
   autoPlayNext: boolean;
-  isImmersive: boolean;
+  defaultImmersive: boolean;
   showTooltips: boolean;
   enableTimelineHoverPreview: boolean;
   setAutoPlayNext: (val: boolean) => void;
-  setIsImmersive: (val: boolean) => void;
-  toggleImmersive: () => void;
+  setDefaultImmersive: (val: boolean) => void;
   setShowTooltips: (val: boolean) => void;
   setEnableTimelineHoverPreview: (val: boolean) => void;
 }
@@ -18,12 +17,11 @@ export const useSettingsStore = create<SettingsStore>()(
   persist(
     (set) => ({
       autoPlayNext: true,
-      isImmersive: false,
+      defaultImmersive: false,
       showTooltips: true,
       enableTimelineHoverPreview: true,
       setAutoPlayNext: (autoPlayNext) => set({ autoPlayNext }),
-      setIsImmersive: (isImmersive) => set({ isImmersive }),
-      toggleImmersive: () => set((state) => ({ isImmersive: !state.isImmersive })),
+      setDefaultImmersive: (defaultImmersive) => set({ defaultImmersive }),
       setShowTooltips: (showTooltips) => set({ showTooltips }),
       setEnableTimelineHoverPreview: (enableTimelineHoverPreview) => set({ enableTimelineHoverPreview }),
     }),

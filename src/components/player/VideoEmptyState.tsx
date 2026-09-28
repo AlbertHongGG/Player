@@ -1,10 +1,10 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { Film, Play } from "lucide-react";
-import { usePlaylistStore } from "../../store/playlistStore";
+import { useUiStore } from "../../store/uiStore";
 
 export const VideoEmptyState: React.FC = () => {
-  const { setSidebarOpen } = usePlaylistStore();
+  const { setSidebarOpen } = useUiStore();
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center bg-gradient-to-b from-transparent to-black/40 select-none">

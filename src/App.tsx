@@ -2,14 +2,12 @@ import { TitleBar } from "./components/layout/TitleBar";
 import { Notify } from "./components/ui/Notify";
 import { PlaylistSidebar } from "./components/layout/PlaylistSidebar";
 import { VideoPlayer } from "./components/player/VideoPlayer";
-import { useSettingsStore } from "./store/settingsStore";
 import { useUiStore } from "./store/uiStore";
 import { useImmersiveHover } from "./hooks/useImmersiveHover";
 import { useGlobalHotkeys } from "./hooks/useGlobalHotkeys";
 
 function App() {
-  const { isImmersive } = useSettingsStore();
-  const { isCursorHidden } = useUiStore();
+  const { isImmersive, isCursorHidden } = useUiStore();
   useImmersiveHover();
   useGlobalHotkeys();
 

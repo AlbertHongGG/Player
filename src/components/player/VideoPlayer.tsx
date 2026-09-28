@@ -2,18 +2,24 @@ import React, { useRef, useEffect } from "react";
 import { useVideoStore } from "../../store/videoStore";
 import { usePlaylistStore } from "../../store/playlistStore";
 import { useSettingsStore } from "../../store/settingsStore";
+import { useUiStore } from "../../store/uiStore";
 import { useVideoHotkeys } from "../../hooks/useVideoHotkeys";
 import { VideoControls } from "./VideoControls";
 import { VideoEmptyState } from "./VideoEmptyState";
 import { Loader2 } from "lucide-react";
-import { commands } from "../../types/bindings";
-import { useNotifyStore } from "../../store/notifyStore";
-import { useUiStore } from "../../store/uiStore";
 
 export const VideoPlayer: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerWrapperRef = useRef<HTMLDivElement>(null);
-  const { isCursorHidden, isNearBottom, isBottomHovered, setIsBottomHovered } = useUiStore();
+
+  const {
+    isCursorHidden,
+    isNearBottom,
+    isBottomHovered,
+    setIsBottomHovered,
+    isSidebarOpen,
+    isImmersive,
+  } = useUiStore();
 
   const {
     videoUrl,
@@ -27,13 +33,10 @@ export const VideoPlayer: React.FC = () => {
     setCurrentTime,
     setDuration,
     setSeekToTime,
-    setVideoUrl,
-    setIsLoadingStream,
   } = useVideoStore();
 
-  const { playlist, selectedEpisodeId, selectEpisode, isSidebarOpen } = usePlaylistStore();
-  const { autoPlayNext, isImmersive } = useSettingsStore();
-  const { show } = useNotifyStore();
+  const { playNextEpisode } = usePlaylistStore();
+  const { autoPlayNext } = useSettingsStore();
 
   const isControlsVisible = (!isImmersive && !isFullscreen) || isNearBottom || isBottomHovered;
 
@@ -94,26 +97,9 @@ export const VideoPlayer: React.FC = () => {
   const handleVideoEnded = async () => {
     setIsPlaying(false);
 
-    // Auto-play next episode if enabled
-    if (autoPlayNext && playlist && selectedEpisodeId) {
-      const currentIndex = playlist.episodes.findIndex((ep) => ep.id === selectedEpisodeId);
-      if (currentIndex !== -1 && currentIndex < playlist.episodes.length - 1) {
-        const nextEpisode = playlist.episodes[currentIndex + 1];
-        show(`Auto-playing next: ${nextEpisode.title}`, "info");
-        selectEpisode(nextEpisode.id);
-        setIsLoadingStream(true);
-        try {
-          const res = await commands.resolveEpisode(nextEpisode.provider_id, nextEpisode.id);
-          if (res.status === "ok") {
-            setVideoUrl(res.data.stream_url, nextEpisode.title, res.data.storyboard || nextEpisode.storyboard);
-            setIsPlaying(true);
-          }
-        } catch (e) {
-          console.error("Auto next error:", e);
-        } finally {
-          setIsLoadingStream(false);
-        }
-      }
+    // Auto-play next episode if enabled via centralized playlist dispatcher
+    if (autoPlayNext) {
+      await playNextEpisode();
     }
   };
 

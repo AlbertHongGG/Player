@@ -9,8 +9,7 @@ import {
   Clipboard,
 } from "lucide-react";
 import { usePlaylistStore } from "../../store/playlistStore";
-import { useVideoStore } from "../../store/videoStore";
-import { useSettingsStore } from "../../store/settingsStore";
+import { useUiStore } from "../../store/uiStore";
 import { useNotifyStore } from "../../store/notifyStore";
 import { commands, Episode } from "../../types/bindings";
 import { Tooltip } from "../ui/Tooltip";
@@ -21,16 +20,14 @@ export const PlaylistSidebar: React.FC = () => {
     targetUrl,
     playlist,
     selectedEpisodeId,
-    isSidebarOpen,
     isParsing,
     setTargetUrl,
     setPlaylist,
-    selectEpisode,
     setIsParsing,
+    playEpisode,
   } = usePlaylistStore();
 
-  const { setVideoUrl, setIsLoadingStream, setIsPlaying } = useVideoStore();
-  const { isImmersive } = useSettingsStore();
+  const { isSidebarOpen, isImmersive } = useUiStore();
   const { show } = useNotifyStore();
 
   const [inputUrl, setInputUrl] = useState(targetUrl);
@@ -90,26 +87,10 @@ export const PlaylistSidebar: React.FC = () => {
   };
 
   const handleSelectEpisode = async (episode: Episode) => {
-    selectEpisode(episode.id);
-    setIsLoadingStream(true);
-
-    try {
-      const res = await commands.resolveEpisode(episode.provider_id, episode.id);
-      if (res.status === "ok") {
-        setVideoUrl(res.data.stream_url, episode.title, res.data.storyboard || episode.storyboard);
-        setIsPlaying(true);
-        show(`Playing: ${episode.title}`, "success");
-        if (isImmersive) {
-          usePlaylistStore.getState().toggleSidebar();
-        }
-      } else {
-        show(`Failed to resolve episode: ${res.error}`, "error");
-      }
-    } catch (e) {
-      console.error("Resolve episode error:", e);
-      show(`Error resolving episode: ${e}`, "error");
-    } finally {
-      setIsLoadingStream(false);
+    await playEpisode(episode);
+    show(`Playing: ${episode.title}`, "success");
+    if (isImmersive) {
+      useUiStore.getState().toggleSidebar();
     }
   };
 
@@ -125,7 +106,7 @@ export const PlaylistSidebar: React.FC = () => {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
               className="absolute inset-0 z-30 bg-black/50 backdrop-blur-[2px]"
-              onClick={() => usePlaylistStore.getState().toggleSidebar()}
+              onClick={() => useUiStore.getState().toggleSidebar()}
             />
           )}
 

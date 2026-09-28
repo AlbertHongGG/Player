@@ -28,9 +28,9 @@ export const SettingsPanel: React.FC = () => {
               description="Start in borderless cinema canvas."
             >
               <SettingToggle
-                settingKey="isImmersive"
-                checked={store.isImmersive}
-                setter={store.setIsImmersive}
+                settingKey="defaultImmersive"
+                checked={store.defaultImmersive}
+                setter={store.setDefaultImmersive}
               />
             </SettingRow>
             <SettingRow

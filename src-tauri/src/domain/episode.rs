@@ -44,6 +44,5 @@ pub struct PlayableStreamDto {
     pub session_id: String,
     pub stream_url: String,
     pub episode_id: String,
-    pub title: String,
     pub storyboard: Option<StoryboardTrack>,
 }

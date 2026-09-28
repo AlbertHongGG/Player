@@ -19,7 +19,7 @@ impl Anime1Parser {
     pub fn parse_html(
         url: &str,
         html_content: &str,
-    ) -> Result<(Playlist, Vec<(String, Anime1Payload, Option<StoryboardTrack>)>), ProviderError> {
+    ) -> Result<(Playlist, Vec<(String, Anime1Payload)>), ProviderError> {
         let document = Html::parse_document(html_content);
 
         // 1. Extract Playlist Title (prioritize page-title over title tag)
@@ -178,7 +178,7 @@ impl Anime1Parser {
                     article.title.clone()
                 };
 
-                payloads.push((ep_id.clone(), player.raw_payload, player.storyboard.clone()));
+                payloads.push((ep_id.clone(), player.raw_payload));
 
                 episodes.push(Episode {
                     id: ep_id,

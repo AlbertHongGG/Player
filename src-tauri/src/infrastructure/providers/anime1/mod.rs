@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::domain::episode::{Episode, Playlist, StreamSession, StoryboardTrack};
+use crate::domain::episode::{Episode, Playlist, StreamSession};
 use crate::domain::errors::ProviderError;
 use crate::domain::provider::VideoSourceProvider;
 use self::parser::{Anime1Parser, Anime1Payload};
@@ -14,7 +14,7 @@ use self::client::Anime1Client;
 
 pub struct Anime1Provider {
     client: Anime1Client,
-    payloads: Arc<RwLock<HashMap<String, (Anime1Payload, Option<StoryboardTrack>)>>>,
+    payloads: Arc<RwLock<HashMap<String, Anime1Payload>>>,
 }
 
 impl Anime1Provider {
@@ -43,8 +43,8 @@ impl VideoSourceProvider for Anime1Provider {
         // Cache payloads internally
         {
             let mut map = self.payloads.write().await;
-            for (ep_id, p, sb) in payloads {
-                map.insert(ep_id, (p, sb));
+            for (ep_id, p) in payloads {
+                map.insert(ep_id, p);
             }
         }
 
@@ -52,15 +52,14 @@ impl VideoSourceProvider for Anime1Provider {
     }
 
     async fn resolve_stream(&self, episode: &Episode) -> Result<StreamSession, ProviderError> {
-        let (payload, storyboard) = {
+        let payload = {
             let map = self.payloads.read().await;
             map.get(&episode.id)
                 .cloned()
                 .ok_or_else(|| ProviderError::NotFound(format!("No authentication payload found for episode {}", episode.id)))?
         };
 
-        let mut session = self.client.resolve_stream(&episode.id, &payload).await?;
-        session.storyboard = storyboard.or_else(|| episode.storyboard.clone());
+        let session = self.client.resolve_stream(&episode.id, &payload).await?;
         Ok(session)
     }
 }
@@ -91,7 +90,7 @@ mod tests {
         let first_ep = &playlist.episodes[0];
         println!("Resolving first episode: {} ({})", first_ep.title, first_ep.id);
 
-        let (payload, _sb) = {
+        let payload = {
             let map = provider.payloads.read().await;
             map.get(&first_ep.id).cloned().expect("Payload must exist")
         };

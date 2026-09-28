@@ -1,6 +1,5 @@
 import { useEffect } from "react";
-import { usePlaylistStore } from "../store/playlistStore";
-import { useSettingsStore } from "../store/settingsStore";
+import { useUiStore } from "../store/uiStore";
 
 /**
  * Global application-level keyboard shortcuts.
@@ -21,14 +20,14 @@ export function useGlobalHotkeys() {
       // 'P' or 'p': Toggle playlist drawer / sidebar
       if ((e.key === "p" || e.key === "P") && !e.repeat) {
         e.preventDefault();
-        usePlaylistStore.getState().toggleSidebar();
+        useUiStore.getState().toggleSidebar();
         return;
       }
 
-      // 'I' or 'i': Toggle immersive mode
+      // 'I' or 'i': Toggle active window immersive mode
       if ((e.key === "i" || e.key === "I") && !e.repeat) {
         e.preventDefault();
-        useSettingsStore.getState().toggleImmersive();
+        useUiStore.getState().toggleImmersive();
         return;
       }
     };

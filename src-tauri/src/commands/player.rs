@@ -55,7 +55,6 @@ pub async fn resolve_episode(
         session_id,
         stream_url,
         episode_id,
-        title: episode.title,
         storyboard,
     })
 }

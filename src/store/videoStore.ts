@@ -1,10 +1,9 @@
-import { create } from 'zustand';
-import { StoryboardTrack } from '../types/bindings';
-import { StoryboardEngine } from '../components/player/preview/StoryboardEngine';
+import { create } from "zustand";
+import { StoryboardTrack } from "../types/bindings";
+import { StoryboardEngine } from "../components/player/preview/StoryboardEngine";
 
 interface VideoStore {
   videoUrl: string | null;
-  videoTitle: string | null;
   isPlaying: boolean;
   currentTime: number;
   duration: number;
@@ -16,7 +15,7 @@ interface VideoStore {
   isLoadingStream: boolean;
   storyboard: StoryboardTrack | null;
 
-  setVideoUrl: (url: string | null, title?: string | null, storyboard?: StoryboardTrack | null) => void;
+  setVideoUrl: (url: string | null, storyboard?: StoryboardTrack | null) => void;
   setStoryboard: (storyboard: StoryboardTrack | null) => void;
   setIsPlaying: (isPlaying: boolean) => void;
   setCurrentTime: (time: number) => void;
@@ -32,7 +31,6 @@ interface VideoStore {
 
 export const useVideoStore = create<VideoStore>((set) => ({
   videoUrl: null,
-  videoTitle: null,
   isPlaying: false,
   currentTime: 0,
   duration: 0,
@@ -44,13 +42,12 @@ export const useVideoStore = create<VideoStore>((set) => ({
   isLoadingStream: false,
   storyboard: null,
 
-  setVideoUrl: (url, title = null, storyboard = null) => {
+  setVideoUrl: (url, storyboard = null) => {
     if (storyboard?.sprite_url) {
       StoryboardEngine.preload(storyboard.sprite_url);
     }
     set({
       videoUrl: url,
-      videoTitle: title,
       storyboard,
       currentTime: 0,
       isPlaying: false,
@@ -77,7 +74,6 @@ export const useVideoStore = create<VideoStore>((set) => ({
   reset: () =>
     set({
       videoUrl: null,
-      videoTitle: null,
       storyboard: null,
       isPlaying: false,
       currentTime: 0,

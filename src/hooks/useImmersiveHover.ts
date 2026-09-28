@@ -1,13 +1,10 @@
 import { useEffect, useRef, useCallback } from "react";
 import { useVideoStore } from "../store/videoStore";
-import { useSettingsStore } from "../store/settingsStore";
-import { usePlaylistStore } from "../store/playlistStore";
 import { useUiStore } from "../store/uiStore";
 
 export function useImmersiveHover(): void {
-  const { isImmersive } = useSettingsStore();
   const { isPlaying, isFullscreen } = useVideoStore();
-  const { setIsNearTop, setIsNearBottom, setIsCursorHidden } = useUiStore();
+  const { isImmersive, setIsNearTop, setIsNearBottom, setIsCursorHidden } = useUiStore();
 
   const idleTimerRef = useRef<number | null>(null);
 
@@ -43,7 +40,7 @@ export function useImmersiveHover(): void {
       const topBoundary = 100;
       const bottomBoundary = window.innerHeight - 130;
 
-      const isSidebarOpen = usePlaylistStore.getState().isSidebarOpen;
+      const isSidebarOpen = useUiStore.getState().isSidebarOpen;
       const isInsideSidebar = isSidebarOpen && e.clientX >= window.innerWidth - 340;
 
       // When mouse is inside the playlist sidebar on the right, DO NOT trigger bottom controls

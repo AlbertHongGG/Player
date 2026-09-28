@@ -3,8 +3,6 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { WebviewWindow, getAllWebviewWindows } from "@tauri-apps/api/webviewWindow";
 import { Minus, Square, X, Maximize, Settings, PanelRightClose, PanelRightOpen, PictureInPicture2 } from "lucide-react";
 import { Tooltip } from "../ui/Tooltip";
-import { usePlaylistStore } from "../../store/playlistStore";
-import { useSettingsStore } from "../../store/settingsStore";
 import { useUiStore } from "../../store/uiStore";
 import { useNotifyStore } from "../../store/notifyStore";
 
@@ -12,9 +10,15 @@ export const TitleBar: React.FC = () => {
   const [isMaximized, setIsMaximized] = useState(false);
   const appWindow = getCurrentWindow();
 
-  const { isSidebarOpen, toggleSidebar } = usePlaylistStore();
-  const { isImmersive, toggleImmersive } = useSettingsStore();
-  const { isNearTop, isTopHovered, setIsTopHovered } = useUiStore();
+  const {
+    isSidebarOpen,
+    toggleSidebar,
+    isImmersive,
+    toggleImmersive,
+    isNearTop,
+    isTopHovered,
+    setIsTopHovered,
+  } = useUiStore();
   const { show } = useNotifyStore();
 
   const isVisible = !isImmersive || isNearTop || isTopHovered;

@@ -24,7 +24,6 @@ export type PlayableStreamDto = {
 	session_id: string,
 	stream_url: string,
 	episode_id: string,
-	title: string,
 	storyboard: StoryboardTrack | null,
 };
 
