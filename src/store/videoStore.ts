@@ -1,20 +1,30 @@
 import { create } from "zustand";
 import { StoryboardTrack } from "../types/bindings";
 import { StoryboardEngine } from "../components/player/preview/StoryboardEngine";
+import {
+  clampSpeed,
+  stepSpeed,
+  toggleNormalSpeed,
+  NORMAL_PLAYBACK_SPEED,
+} from "../utils/playbackSpeed";
 
 interface VideoStore {
+  // Ephemeral media session states (per-episode)
   videoUrl: string | null;
   isPlaying: boolean;
   currentTime: number;
   duration: number;
-  volume: number;
-  playbackRate: number;
-  previousPlaybackRate: number;
   seekToTime: number | null;
-  isFullscreen: boolean;
   isLoadingStream: boolean;
   storyboard: StoryboardTrack | null;
 
+  // Player preferences (preserved across episodes)
+  volume: number;
+  playbackRate: number;
+  previousPlaybackRate: number;
+  isFullscreen: boolean;
+
+  // Actions
   setVideoUrl: (url: string | null, storyboard?: StoryboardTrack | null) => void;
   setStoryboard: (storyboard: StoryboardTrack | null) => void;
   setIsPlaying: (isPlaying: boolean) => void;
@@ -23,6 +33,8 @@ interface VideoStore {
   setVolume: (volume: number) => void;
   setPlaybackRate: (rate: number) => void;
   setPreviousPlaybackRate: (rate: number) => void;
+  stepPlaybackRate: (delta: number) => void;
+  toggleNormalPlaybackRate: () => void;
   setSeekToTime: (time: number | null) => void;
   setIsFullscreen: (isFullscreen: boolean) => void;
   setIsLoadingStream: (isLoading: boolean) => void;
@@ -35,8 +47,8 @@ export const useVideoStore = create<VideoStore>((set) => ({
   currentTime: 0,
   duration: 0,
   volume: 1,
-  playbackRate: 1,
-  previousPlaybackRate: 1,
+  playbackRate: NORMAL_PLAYBACK_SPEED,
+  previousPlaybackRate: NORMAL_PLAYBACK_SPEED,
   seekToTime: null,
   isFullscreen: false,
   isLoadingStream: false,
@@ -46,13 +58,13 @@ export const useVideoStore = create<VideoStore>((set) => ({
     if (storyboard?.sprite_url) {
       StoryboardEngine.preload(storyboard.sprite_url);
     }
+    // Crucial: preserve user's playback preferences (volume, playbackRate, previousPlaybackRate) across episodes
     set({
       videoUrl: url,
       storyboard,
       currentTime: 0,
       isPlaying: false,
       seekToTime: null,
-      playbackRate: 1,
       isLoadingStream: false,
     });
   },
@@ -66,8 +78,22 @@ export const useVideoStore = create<VideoStore>((set) => ({
   setCurrentTime: (currentTime) => set({ currentTime }),
   setDuration: (duration) => set({ duration }),
   setVolume: (volume) => set({ volume }),
-  setPlaybackRate: (playbackRate) => set({ playbackRate }),
-  setPreviousPlaybackRate: (previousPlaybackRate) => set({ previousPlaybackRate }),
+  setPlaybackRate: (playbackRate) => set({ playbackRate: clampSpeed(playbackRate) }),
+  setPreviousPlaybackRate: (previousPlaybackRate) =>
+    set({ previousPlaybackRate: clampSpeed(previousPlaybackRate) }),
+  stepPlaybackRate: (delta) =>
+    set((state) => ({ playbackRate: stepSpeed(state.playbackRate, delta) })),
+  toggleNormalPlaybackRate: () =>
+    set((state) => {
+      const { nextRate, nextPreviousRate } = toggleNormalSpeed(
+        state.playbackRate,
+        state.previousPlaybackRate
+      );
+      return {
+        playbackRate: nextRate,
+        previousPlaybackRate: nextPreviousRate,
+      };
+    }),
   setSeekToTime: (seekToTime) => set({ seekToTime }),
   setIsFullscreen: (isFullscreen) => set({ isFullscreen }),
   setIsLoadingStream: (isLoadingStream) => set({ isLoadingStream }),
@@ -79,7 +105,6 @@ export const useVideoStore = create<VideoStore>((set) => ({
       currentTime: 0,
       duration: 0,
       seekToTime: null,
-      playbackRate: 1,
       isFullscreen: false,
       isLoadingStream: false,
     }),

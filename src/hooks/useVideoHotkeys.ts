@@ -84,24 +84,17 @@ export function useVideoHotkeys({ videoRef, playerWrapperRef }: UseVideoHotkeysP
       }
 
       if (e.key === "a" || e.key === "A") {
-        const newRate = Math.max(0.1, state.playbackRate - 0.1);
-        state.setPlaybackRate(Number(newRate.toFixed(1)));
+        state.stepPlaybackRate(-0.1);
         return;
       }
 
       if (e.key === "d" || e.key === "D") {
-        const newRate = Math.min(16.0, state.playbackRate + 0.1);
-        state.setPlaybackRate(Number(newRate.toFixed(1)));
+        state.stepPlaybackRate(0.1);
         return;
       }
 
       if ((e.key === "s" || e.key === "S") && !e.repeat) {
-        if (state.playbackRate !== 1) {
-          state.setPreviousPlaybackRate(state.playbackRate);
-          state.setPlaybackRate(1);
-        } else {
-          state.setPlaybackRate(state.previousPlaybackRate);
-        }
+        state.toggleNormalPlaybackRate();
         return;
       }
 

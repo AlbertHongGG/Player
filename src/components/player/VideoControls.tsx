@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import * as Slider from "@radix-ui/react-slider";
 import { formatTime } from "../../utils/time";
+import { formatSpeedDisplay } from "../../utils/playbackSpeed";
 import { Tooltip } from "../ui/Tooltip";
 import { useTimelinePreview } from "../../hooks/useTimelinePreview";
 import { TimelinePreviewCard } from "./preview/TimelinePreviewCard";
@@ -160,9 +161,14 @@ export const VideoControls: React.FC = () => {
         <div className="w-1/3 flex justify-end items-center gap-3">
           {/* Speed Display */}
           {playbackRate !== 1 && (
-            <div className="text-[10px] font-mono text-[#facc15] bg-[#facc15]/10 px-1.5 py-0.5 rounded cursor-default border border-[#facc15]/20">
-              {playbackRate}x
-            </div>
+            <Tooltip content="Reset / Toggle Normal Speed (S)" position="top">
+              <button
+                onClick={() => useVideoStore.getState().toggleNormalPlaybackRate()}
+                className="text-[10px] font-mono text-[#facc15] bg-[#facc15]/10 hover:bg-[#facc15]/20 px-1.5 py-0.5 rounded cursor-pointer border border-[#facc15]/20 transition-colors"
+              >
+                {formatSpeedDisplay(playbackRate)}
+              </button>
+            </Tooltip>
           )}
 
           <div className="flex items-center gap-2 w-24 group/vol">

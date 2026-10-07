@@ -75,6 +75,7 @@ export const VideoPlayer: React.FC = () => {
   // Handle playback rate sync
   useEffect(() => {
     if (videoRef.current) {
+      videoRef.current.defaultPlaybackRate = playbackRate;
       videoRef.current.playbackRate = playbackRate;
     }
   }, [playbackRate]);
@@ -88,6 +89,8 @@ export const VideoPlayer: React.FC = () => {
   const handleLoadedMetadata = () => {
     if (videoRef.current) {
       setDuration(videoRef.current.duration);
+      videoRef.current.defaultPlaybackRate = playbackRate;
+      videoRef.current.playbackRate = playbackRate;
       if (isPlaying) {
         videoRef.current.play().catch(console.warn);
       }
