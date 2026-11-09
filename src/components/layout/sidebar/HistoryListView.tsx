@@ -1,33 +1,37 @@
 import React, { useState, useMemo, useCallback } from "react";
-import { History, Trash2, Search, X } from "lucide-react";
+import { History, Trash2 } from "lucide-react";
 import { useHistoryStore, useHistoryIds } from "../../../store/historyStore.ts";
 import { usePlaylistStore } from "../../../store/playlistStore.ts";
 import { useUiStore } from "../../../store/uiStore.ts";
 import { useNotifyStore } from "../../../store/notifyStore.ts";
 import { HistoryItemCard } from "./HistoryItemCard.tsx";
+import { SidebarEmptyState } from "./SidebarEmptyState.tsx";
 
-export const HistoryListView: React.FC = () => {
-  const [searchQuery, setSearchQuery] = useState("");
+interface HistoryListViewProps {
+  onFocusInput?: () => void;
+}
+
+export const HistoryListView: React.FC<HistoryListViewProps> = ({ onFocusInput }) => {
   const [confirmClearAll, setConfirmClearAll] = useState(false);
 
   const { loadPlaylist } = usePlaylistStore();
-  const { isImmersive, setSidebarTab } = useUiStore();
+  const { isImmersive, setSidebarTab, historyFilterQuery } = useUiStore();
   const { show } = useNotifyStore();
 
-  // Stable ID list subscription (Array reference never mutates during normal renders)
+  // Stable ID list subscription
   const historyIds = useHistoryIds();
   const byId = useHistoryStore((s) => s.byId);
   const removeEntry = useHistoryStore((s) => s.removeEntry);
   const clearAll = useHistoryStore((s) => s.clearAll);
 
   const filteredIds = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = historyFilterQuery.trim().toLowerCase();
     if (!q) return historyIds;
     return historyIds.filter((id) => {
       const record = byId[id];
       return record && record.title.toLowerCase().includes(q);
     });
-  }, [historyIds, byId, searchQuery]);
+  }, [historyIds, byId, historyFilterQuery]);
 
   const handleSelectHistory = useCallback(
     async (canonicalUrl: string, lastEpisodeId?: string) => {
@@ -57,47 +61,16 @@ export const HistoryListView: React.FC = () => {
 
   if (historyIds.length === 0) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-6 text-center select-none text-gray-500 space-y-3">
-        <div className="w-16 h-16 rounded-full bg-white/[0.03] border border-white/5 flex items-center justify-center">
-          <History size={24} className="text-gray-400 opacity-60" />
-        </div>
-        <div className="space-y-1">
-          <p className="text-xs font-semibold text-gray-300">尚無觀看歷史</p>
-          <p className="text-[11px] text-gray-500 leading-relaxed max-w-[200px]">
-            在上方輸入或貼上動畫網址，播放時會自動記錄您的追番進度
-          </p>
-        </div>
-      </div>
+      <SidebarEmptyState
+        icon={History}
+        title="NO HISTORY"
+        onClick={onFocusInput}
+      />
     );
   }
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      {/* Search Bar when there are 3 or more entries */}
-      {historyIds.length >= 3 && (
-        <div className="p-2 border-b border-white/5">
-          <div className="flex items-center gap-2 bg-[#1a1a1a] border border-white/5 rounded-lg px-2.5 py-1 focus-within:border-white/20 transition-colors">
-            <Search size={12} className="text-gray-400 shrink-0" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="搜尋歷史紀錄..."
-              className="w-full bg-transparent text-xs text-white placeholder-gray-500 focus:outline-none"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery("")}
-                className="text-gray-400 hover:text-white cursor-pointer"
-              >
-                <X size={12} />
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* History Cards Scroll Area */}
       <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2 pb-6">
         {filteredIds.map((id) => (
@@ -109,9 +82,9 @@ export const HistoryListView: React.FC = () => {
           />
         ))}
 
-        {filteredIds.length === 0 && searchQuery && (
-          <div className="text-center py-8 text-gray-500 text-xs">
-            查無符合「{searchQuery}」的歷史紀錄
+        {filteredIds.length === 0 && historyFilterQuery && (
+          <div className="text-center py-12 text-gray-500 text-xs font-mono uppercase tracking-widest">
+            No results found for "{historyFilterQuery}"
           </div>
         )}
       </div>

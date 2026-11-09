@@ -10,6 +10,8 @@ interface UiStore {
   isBottomHovered: boolean;
   isCursorHidden: boolean;
   sidebarTab: "playlist" | "history";
+  playlistUrlInput: string;
+  historyFilterQuery: string;
 
   toggleSidebar: () => void;
   setSidebarOpen: (isOpen: boolean) => void;
@@ -21,6 +23,8 @@ interface UiStore {
   setIsBottomHovered: (val: boolean) => void;
   setIsCursorHidden: (val: boolean) => void;
   setSidebarTab: (tab: "playlist" | "history") => void;
+  setPlaylistUrlInput: (url: string) => void;
+  setHistoryFilterQuery: (query: string) => void;
 }
 
 export const useUiStore = create<UiStore>((set) => ({
@@ -32,6 +36,8 @@ export const useUiStore = create<UiStore>((set) => ({
   isBottomHovered: false,
   isCursorHidden: false,
   sidebarTab: "playlist",
+  playlistUrlInput: "",
+  historyFilterQuery: "",
 
   toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
   setSidebarOpen: (isSidebarOpen) => set({ isSidebarOpen }),
@@ -43,6 +49,8 @@ export const useUiStore = create<UiStore>((set) => ({
   setIsBottomHovered: (isBottomHovered) => set({ isBottomHovered }),
   setIsCursorHidden: (isCursorHidden) => set({ isCursorHidden }),
   setSidebarTab: (sidebarTab) => set({ sidebarTab }),
+  setPlaylistUrlInput: (playlistUrlInput) => set({ playlistUrlInput }),
+  setHistoryFilterQuery: (historyFilterQuery) => set({ historyFilterQuery }),
 }));
 
 if (typeof window !== "undefined") {

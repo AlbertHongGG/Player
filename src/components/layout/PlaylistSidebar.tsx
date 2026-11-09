@@ -1,11 +1,10 @@
-import React, { useRef } from "react";
+import React, { useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Film, History } from "lucide-react";
 import { usePlaylistStore } from "../../store/playlistStore.ts";
 import { useUiStore } from "../../store/uiStore.ts";
 import { useHistoryCount } from "../../store/historyStore.ts";
-import { CleanUrlInput, CleanUrlInputHandle } from "../common/CleanUrlInput.tsx";
-import { PlayableUrl } from "../../domain/url/PlayableUrl.ts";
+import { SidebarInputBar, SidebarInputBarHandle } from "./sidebar/SidebarInputBar.tsx";
 import { EpisodeListView } from "./sidebar/EpisodeListView.tsx";
 import { HistoryListView } from "./sidebar/HistoryListView.tsx";
 
@@ -17,16 +16,34 @@ export const PlaylistSidebar: React.FC = () => {
     loadPlaylist,
   } = usePlaylistStore();
 
-  const { isSidebarOpen, isImmersive, sidebarTab, setSidebarTab } = useUiStore();
+  const {
+    isSidebarOpen,
+    isImmersive,
+    sidebarTab,
+    setSidebarTab,
+    playlistUrlInput,
+    historyFilterQuery,
+    setPlaylistUrlInput,
+    setHistoryFilterQuery,
+  } = useUiStore();
+
   const historyCount = useHistoryCount();
-  const inputRef = useRef<CleanUrlInputHandle>(null);
+  const inputRef = useRef<SidebarInputBarHandle>(null);
+
+  // Sync external targetUrl to input state if input is empty
+  useEffect(() => {
+    if (targetUrl && !playlistUrlInput) {
+      setPlaylistUrlInput(targetUrl);
+    }
+  }, [targetUrl, playlistUrlInput, setPlaylistUrlInput]);
 
   const handleFocusInput = () => {
     inputRef.current?.focus();
   };
 
-  const handleLoadUrl = async (url: PlayableUrl) => {
-    await loadPlaylist(url);
+  const handleLoadUrl = async (rawUrl: string) => {
+    if (!rawUrl.trim()) return;
+    await loadPlaylist(rawUrl);
     setSidebarTab("playlist");
   };
 
@@ -57,7 +74,7 @@ export const PlaylistSidebar: React.FC = () => {
                 : "h-full bg-[#121212] border-l border-white/10 flex flex-col overflow-hidden shrink-0 z-30 select-none"
             }
           >
-            {/* Header: Segmented Tabs & Clean URL Input */}
+            {/* Header: Segmented Tabs & Polymorphic Input Bar */}
             <div className="p-3 border-b border-white/5 space-y-2.5 shrink-0 bg-[#0d0d0d]/40">
               {/* Segmented Tab Controller */}
               <div className="flex items-center p-0.5 bg-[#181818] border border-white/10 rounded-xl">
@@ -98,22 +115,36 @@ export const PlaylistSidebar: React.FC = () => {
                 </button>
               </div>
 
-              {/* Clean URL Input & Load Bar */}
-              <CleanUrlInput
+              {/* Single Polymorphic Input Bar: Clean, uncluttered, no redundant inner buttons */}
+              <SidebarInputBar
                 ref={inputRef}
-                value={targetUrl}
-                isLoading={isParsing}
-                onSubmit={handleLoadUrl}
+                tab={sidebarTab}
+                playlistValue={playlistUrlInput}
+                onPlaylistChange={setPlaylistUrlInput}
+                onPlaylistSubmit={handleLoadUrl}
+                isParsing={isParsing}
+                filterValue={historyFilterQuery}
+                onFilterChange={setHistoryFilterQuery}
               />
             </div>
 
-            {/* Sub-view Area */}
-            <div className="flex-1 overflow-hidden flex flex-col">
-              {sidebarTab === "playlist" ? (
+            {/* Persistent Sub-views: both stay mounted to retain scroll and interaction state */}
+            <div className="flex-1 overflow-hidden flex flex-col relative">
+              <div
+                className={`flex-1 overflow-hidden flex flex-col ${
+                  sidebarTab === "playlist" ? "flex" : "hidden"
+                }`}
+              >
                 <EpisodeListView onFocusInput={handleFocusInput} />
-              ) : (
-                <HistoryListView />
-              )}
+              </div>
+
+              <div
+                className={`flex-1 overflow-hidden flex flex-col ${
+                  sidebarTab === "history" ? "flex" : "hidden"
+                }`}
+              >
+                <HistoryListView onFocusInput={handleFocusInput} />
+              </div>
             </div>
           </motion.div>
         </>
