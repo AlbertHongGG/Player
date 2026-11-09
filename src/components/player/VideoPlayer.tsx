@@ -4,6 +4,7 @@ import { usePlaylistStore } from "../../store/playlistStore";
 import { useSettingsStore } from "../../store/settingsStore";
 import { useUiStore } from "../../store/uiStore";
 import { useVideoHotkeys } from "../../hooks/useVideoHotkeys";
+import { usePlaybackTracker } from "../../hooks/usePlaybackTracker";
 import { VideoControls } from "./VideoControls";
 import { VideoEmptyState } from "./VideoEmptyState";
 import { Loader2 } from "lucide-react";
@@ -42,6 +43,9 @@ export const VideoPlayer: React.FC = () => {
 
   // Attach global keyboard shortcuts
   useVideoHotkeys({ videoRef, playerWrapperRef });
+
+  // Attach background playback progress tracking (throttled interval, pause, seek, beforeunload)
+  usePlaybackTracker({ videoRef });
 
   // Handle seeking
   useEffect(() => {

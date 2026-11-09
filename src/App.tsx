@@ -2,6 +2,7 @@ import { TitleBar } from "./components/layout/TitleBar";
 import { Notify } from "./components/ui/Notify";
 import { PlaylistSidebar } from "./components/layout/PlaylistSidebar";
 import { VideoPlayer } from "./components/player/VideoPlayer";
+import { ErrorBoundary } from "./components/common/ErrorBoundary";
 import { useUiStore } from "./store/uiStore";
 import { useImmersiveHover } from "./hooks/useImmersiveHover";
 import { useGlobalHotkeys } from "./hooks/useGlobalHotkeys";
@@ -34,7 +35,9 @@ function App() {
         </main>
 
         {/* Right Collapsible Playlist Sidebar (drawer in immersive mode) */}
-        <PlaylistSidebar />
+        <ErrorBoundary fallbackTitle="側邊欄面板發生錯誤">
+          <PlaylistSidebar />
+        </ErrorBoundary>
       </div>
     </div>
   );

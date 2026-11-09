@@ -67,6 +67,20 @@ export class PlayableUrl {
     try {
       const parsed = new URL(cleanCandidate);
 
+      // Canonicalize path: remove /page/\d+ pagination and ensure category trailing slash
+      const decodedPath = safeDecodeUri(parsed.pathname);
+      const trimmedPath = decodedPath.replace(/\/+$/, "");
+      const pageMatch = trimmedPath.match(/^(.*)\/page\/\d+$/i);
+      if (pageMatch) {
+        parsed.pathname = `${pageMatch[1]}/`;
+      } else if (trimmedPath.startsWith("/category/") && !decodedPath.endsWith("/")) {
+        parsed.pathname = `${trimmedPath}/`;
+      }
+
+      // Canonicalize query: remove page / paged query params
+      parsed.searchParams.delete("page");
+      parsed.searchParams.delete("paged");
+
       // Browser URL automatically produces RFC-3986 wire format in .href
       const wireUrl = parsed.href;
       // Display URL is the cleanly decoded version of the normalized URL

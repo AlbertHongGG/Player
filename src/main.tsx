@@ -4,16 +4,27 @@ import { createHashRouter, RouterProvider } from "react-router-dom";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import App from "./App";
 import SettingsWindow from "./SettingsWindow";
+import { ErrorBoundary } from "./components/common/ErrorBoundary";
 import "./index.css";
 
 const router = createHashRouter([
   {
     path: "/",
-    element: <App />,
+    element: (
+      <ErrorBoundary fallbackTitle="播放器主視窗發生錯誤">
+        <App />
+      </ErrorBoundary>
+    ),
+    errorElement: <ErrorBoundary fallbackTitle="頁面路由載入失敗" />,
   },
   {
     path: "/settings",
-    element: <SettingsWindow />,
+    element: (
+      <ErrorBoundary fallbackTitle="設定視窗發生錯誤">
+        <SettingsWindow />
+      </ErrorBoundary>
+    ),
+    errorElement: <ErrorBoundary fallbackTitle="設定路由載入失敗" />,
   },
 ]);
 

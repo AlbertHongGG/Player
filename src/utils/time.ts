@@ -46,3 +46,21 @@ export const formatDateTime = (dateStr?: string | null): string => {
 export const formatDate = (dateStr?: string | null): string => {
   return formatDateTime(dateStr);
 };
+
+export const formatRelativeTime = (timestamp: number): string => {
+  if (!timestamp || isNaN(timestamp)) return "";
+  const now = Date.now();
+  const diffSeconds = Math.max(0, Math.floor((now - timestamp) / 1000));
+
+  if (diffSeconds < 60) return "剛剛";
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  if (diffMinutes < 60) return `${diffMinutes} 分鐘前`;
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours} 小時前`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 30) return `${diffDays} 天前`;
+  const diffMonths = Math.floor(diffDays / 30);
+  if (diffMonths < 12) return `${diffMonths} 個月前`;
+  const diffYears = Math.floor(diffDays / 365);
+  return `${diffYears} 年前`;
+};

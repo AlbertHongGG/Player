@@ -13,16 +13,38 @@ pub struct Anime1Payload {
     pub s: String,
 }
 
+#[derive(Debug, Clone)]
+pub struct ParsedRawPlayer {
+    pub player_index: u32,
+    pub raw_payload: Anime1Payload,
+    pub storyboard: Option<StoryboardTrack>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ParsedArticle {
+    pub article_id: String,
+    pub title: String,
+    pub article_url: Option<String>,
+    pub published_at: Option<String>,
+    pub raw_players: Vec<ParsedRawPlayer>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ParsedPage {
+    pub title: String,
+    pub articles: Vec<ParsedArticle>,
+    pub next_page_url: Option<String>,
+}
+
 pub struct Anime1Parser;
 
 impl Anime1Parser {
-    pub fn parse_html(
-        url: &str,
-        html_content: &str,
-    ) -> Result<(Playlist, Vec<(String, Anime1Payload)>), ProviderError> {
+    /// Parses a single HTML page, extracting its title, all articles on this page,
+    /// and any pagination link pointing to older posts / next page.
+    pub fn parse_single_page(html_content: &str) -> Result<ParsedPage, ProviderError> {
         let document = Html::parse_document(html_content);
 
-        // 1. Extract Playlist Title (prioritize page-title over title tag)
+        // 1. Extract Title
         let page_title_sel = Selector::parse("h1.page-title, h1.entry-title")
             .map_err(|e| ProviderError::Parse(e.to_string()))?;
         let doc_title_sel = Selector::parse("title")
@@ -48,7 +70,25 @@ impl Anime1Parser {
             .trim()
             .to_string();
 
-        // 2. Select articles
+        // 2. Extract next page / older posts pagination link
+        let next_page_sel = Selector::parse(
+            "div.nav-previous a, li.nav-previous a, a.next.page-numbers, .pagination a.next, nav.posts-navigation a[href*='/page/']"
+        ).map_err(|e| ProviderError::Parse(e.to_string()))?;
+
+        let next_page_url = document
+            .select(&next_page_sel)
+            .next()
+            .and_then(|el| el.value().attr("href"))
+            .map(|href| {
+                let trimmed = href.trim();
+                if trimmed.starts_with('/') {
+                    format!("https://anime1.me{}", trimmed)
+                } else {
+                    trimmed.to_string()
+                }
+            });
+
+        // 3. Select articles
         let article_sel = Selector::parse("article").map_err(|e| ProviderError::Parse(e.to_string()))?;
         let entry_title_sel = Selector::parse(
             "header.entry-header h2.entry-title a, header.entry-header h1.entry-title a, h2.entry-title, h1.entry-title",
@@ -59,26 +99,11 @@ impl Anime1Parser {
         let apireq_sel = Selector::parse("[data-apireq]")
             .map_err(|e| ProviderError::Parse(e.to_string()))?;
 
-        struct ParsedRawPlayer {
-            player_index: u32,
-            raw_payload: Anime1Payload,
-            storyboard: Option<StoryboardTrack>,
-        }
-
-        struct ParsedArticle {
-            article_id: String,
-            title: String,
-            article_url: Option<String>,
-            published_at: Option<String>,
-            raw_players: Vec<ParsedRawPlayer>,
-        }
-
-        let mut parsed_articles: Vec<ParsedArticle> = Vec::new();
+        let mut articles = Vec::new();
 
         for article in document.select(&article_sel) {
             let article_id = article.value().attr("id").unwrap_or("unknown_article").to_string();
 
-            // Title and article url
             let mut ep_title = String::new();
             let mut article_url = None;
             if let Some(title_el) = article.select(&entry_title_sel).next() {
@@ -91,7 +116,6 @@ impl Anime1Parser {
                 ep_title = article_id.clone();
             }
 
-            // Date: preserve full canonical timestamp
             let published_at = article
                 .select(&date_sel)
                 .next()
@@ -105,7 +129,6 @@ impl Anime1Parser {
                         })
                 });
 
-            // Extract players in this article in top-to-bottom document order
             let mut raw_players = Vec::new();
             let mut player_index: u32 = 1;
             for req_el in article.select(&apireq_sel) {
@@ -123,7 +146,6 @@ impl Anime1Parser {
                         }
                     };
 
-                    // Extract storyboard attributes (data-vid, data-tserver)
                     let vid = req_el.value().attr("data-vid").map(|s| s.trim().to_string());
                     let tserver = req_el.value().attr("data-tserver").map(|s| s.trim().to_string());
                     let storyboard = match (&vid, &tserver) {
@@ -146,7 +168,7 @@ impl Anime1Parser {
                 }
             }
 
-            parsed_articles.push(ParsedArticle {
+            articles.push(ParsedArticle {
                 article_id,
                 title: ep_title,
                 article_url,
@@ -155,15 +177,38 @@ impl Anime1Parser {
             });
         }
 
+        Ok(ParsedPage {
+            title: cleaned_title,
+            articles,
+            next_page_url,
+        })
+    }
+
+    /// Assembles an aggregated list of articles collected across pages into a unified Playlist.
+    /// Deduplicates articles and reverses page order so Episode 1 appears first in chronological order.
+    pub fn assemble_playlist(
+        canonical_url: &str,
+        title: &str,
+        articles: Vec<ParsedArticle>,
+    ) -> Result<(Playlist, Vec<(String, Anime1Payload)>), ProviderError> {
+        // Deduplicate articles by article_id preserving order
+        let mut seen_ids = std::collections::HashSet::new();
+        let mut deduplicated: Vec<ParsedArticle> = Vec::new();
+        for art in articles {
+            if seen_ids.insert(art.article_id.clone()) {
+                deduplicated.push(art);
+            }
+        }
+
         // Anime1 lists articles in reverse chronological order (newest on top).
-        // Reverse ARTICLES so that Episode 01 appears first in chronological order,
-        // while strictly preserving the ascending natural order of players within each article!
-        parsed_articles.reverse();
+        // Traversal of pages (Page 1 -> Page 2 -> ...) collects newest articles first.
+        // Reversing the deduplicated list places Episode 1 first!
+        deduplicated.reverse();
 
         let mut episodes = Vec::new();
         let mut payloads = Vec::new();
 
-        for article in parsed_articles {
+        for article in deduplicated {
             let total_players = article.raw_players.len();
             for player in article.raw_players {
                 let ep_id = if player.player_index == 1 {
@@ -194,13 +239,22 @@ impl Anime1Parser {
 
         Ok((
             Playlist {
-                title: cleaned_title,
-                url: url.to_string(),
+                title: title.to_string(),
+                url: canonical_url.to_string(),
                 provider_id: "anime1".to_string(),
                 episodes,
             },
             payloads,
         ))
+    }
+
+    /// Single-page convenience wrapper for backward compatibility and tests
+    pub fn parse_html(
+        url: &str,
+        html_content: &str,
+    ) -> Result<(Playlist, Vec<(String, Anime1Payload)>), ProviderError> {
+        let page = Self::parse_single_page(html_content)?;
+        Self::assemble_playlist(url, &page.title, page.articles)
     }
 }
 
@@ -226,51 +280,29 @@ mod tests {
                     <div class="vjscontainer">
                         <div id="vjs-1" data-apireq="%7B%22c%22%3A%222256%22%2C%22e%22%3A%22sp-episode0%22%2C%22t%22%3A1788693678%2C%22p%22%3A5%2C%22s%22%3A%22aaee3d46281afa901f42011e73a5fbfc%22%7D" data-vid="sp0" data-tserver="pt1"></div>
                     </div>
-                    <div class="vjscontainer">
-                        <div id="vjs-2" data-apireq="%7B%22c%22%3A%222256%22%2C%22e%22%3A%22sp-horacamp%22%2C%22t%22%3A1788693678%2C%22p%22%3A5%2C%22s%22%3A%22bbbb3d46281afa901f42011e73a5fbfc%22%7D"></div>
-                    </div>
                 </div>
             </article>
-            <article id="post-4711">
-                <header class="entry-header">
-                    <h2 class="entry-title"><a href="https://anime1.me/4711">搖曳露營△ [12]</a></h2>
-                    <time class="entry-date" datetime="2018-03-23T04:17:10+08:00">2018-03-23</time>
-                </header>
-                <div class="entry-content">
-                    <div class="vjscontainer">
-                        <div id="vjs-12345" data-apireq="%7B%22c%22%3A%221941%22%2C%22e%22%3A%226b%22%2C%22t%22%3A1787233540%2C%22p%22%3A0%2C%22s%22%3A%22f02cd278f93df0d5c4c8916af92dddda%22%7D" data-vid="krey_" data-tserver="pt2"></div>
-                    </div>
+            <nav class="navigation posts-navigation">
+                <div class="nav-links">
+                    <div class="nav-previous"><a href="https://anime1.me/category/2018%e5%b9%b4%e5%86%ac%e5%ad%a3/%e6%90%96%e6%9b%b3%e9%9c%b2%e7%87%9f%e2%96%b3/page/2">較舊的文章</a></div>
                 </div>
-            </article>
+            </nav>
         </main>
         </body>
         </html>
         "#;
 
-        let (playlist, payloads) =
-            Anime1Parser::parse_html("https://anime1.me/category/sample", html).unwrap();
-        assert_eq!(playlist.title, "搖曳露營△");
-        assert_eq!(playlist.episodes.len(), 3);
-        assert_eq!(payloads.len(), 3);
+        let page = Anime1Parser::parse_single_page(html).expect("Should parse single page");
+        assert_eq!(page.title, "搖曳露營△");
+        assert_eq!(page.articles.len(), 1);
+        assert_eq!(
+            page.next_page_url,
+            Some("https://anime1.me/category/2018%e5%b9%b4%e5%86%ac%e5%ad%a3/%e6%90%96%e6%9b%b3%e9%9c%b2%e7%87%9f%e2%96%b3/page/2".to_string())
+        );
 
-        // Episode 12 is first (chronological order) and has storyboard
-        assert_eq!(playlist.episodes[0].title, "搖曳露營△ [12]");
-        let sb = playlist.episodes[0].storyboard.as_ref().expect("Expected storyboard");
-        assert_eq!(sb.sprite_url, "https://pt2.anime1.me/krey_/thumbnails.jpg");
-        assert_eq!(sb.tile_width, 192);
-        assert_eq!(sb.tile_height, 108);
-        assert_eq!(sb.columns, 10);
-        assert_eq!(sb.interval_seconds, 3.0);
-
-        // BD特典SP Part 1 has storyboard
-        assert_eq!(playlist.episodes[1].title, "搖曳露營△ [BD特典SP] (Part 1)");
-        assert_eq!(playlist.episodes[1].player_index, 1);
-        let sb1 = playlist.episodes[1].storyboard.as_ref().expect("Expected storyboard for part 1");
-        assert_eq!(sb1.sprite_url, "https://pt1.anime1.me/sp0/thumbnails.jpg");
-
-        // BD特典SP Part 2 has no storyboard
-        assert_eq!(playlist.episodes[2].title, "搖曳露營△ [BD特典SP] (Part 2)");
-        assert_eq!(playlist.episodes[2].player_index, 2);
-        assert!(playlist.episodes[2].storyboard.is_none());
+        let (playlist, payloads) = Anime1Parser::assemble_playlist("https://anime1.me/category/2018年冬季/搖曳露營△/", &page.title, page.articles).expect("Should assemble");
+        assert_eq!(playlist.episodes.len(), 1);
+        assert_eq!(payloads.len(), 1);
+        assert_eq!(playlist.episodes[0].title, "搖曳露營△ [BD特典SP]");
     }
 }

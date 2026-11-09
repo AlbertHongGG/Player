@@ -9,6 +9,7 @@ interface UiStore {
   isTopHovered: boolean;
   isBottomHovered: boolean;
   isCursorHidden: boolean;
+  sidebarTab: "playlist" | "history";
 
   toggleSidebar: () => void;
   setSidebarOpen: (isOpen: boolean) => void;
@@ -19,6 +20,7 @@ interface UiStore {
   setIsTopHovered: (val: boolean) => void;
   setIsBottomHovered: (val: boolean) => void;
   setIsCursorHidden: (val: boolean) => void;
+  setSidebarTab: (tab: "playlist" | "history") => void;
 }
 
 export const useUiStore = create<UiStore>((set) => ({
@@ -29,6 +31,7 @@ export const useUiStore = create<UiStore>((set) => ({
   isTopHovered: false,
   isBottomHovered: false,
   isCursorHidden: false,
+  sidebarTab: "playlist",
 
   toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
   setSidebarOpen: (isSidebarOpen) => set({ isSidebarOpen }),
@@ -39,6 +42,7 @@ export const useUiStore = create<UiStore>((set) => ({
   setIsTopHovered: (isTopHovered) => set({ isTopHovered }),
   setIsBottomHovered: (isBottomHovered) => set({ isBottomHovered }),
   setIsCursorHidden: (isCursorHidden) => set({ isCursorHidden }),
+  setSidebarTab: (sidebarTab) => set({ sidebarTab }),
 }));
 
 if (typeof window !== "undefined") {

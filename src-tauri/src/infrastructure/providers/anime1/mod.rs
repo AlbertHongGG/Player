@@ -43,8 +43,49 @@ impl VideoSourceProvider for Anime1Provider {
 
     async fn parse_playlist(&self, url: &str) -> Result<Playlist, ProviderError> {
         let source_url = SourceUrl::parse(url)?;
-        let html = self.client.fetch_page(source_url.as_str()).await?;
-        let (playlist, payloads) = Anime1Parser::parse_html(&source_url.to_display_string(), &html)?;
+        // Normalize to canonical URL (Page 1) to ensure traversal collects all pages
+        let canonical_url = source_url.to_canonical();
+        let canonical_display = canonical_url.to_display_string();
+
+        let mut current_fetch_url = canonical_url.as_str().to_string();
+        let mut all_articles = Vec::new();
+        let mut playlist_title = String::new();
+        let mut visited_urls = std::collections::HashSet::new();
+
+        const MAX_PAGES: usize = 20;
+        let mut page_count = 0;
+
+        while page_count < MAX_PAGES {
+            if !visited_urls.insert(current_fetch_url.clone()) {
+                break;
+            }
+            page_count += 1;
+
+            let html = self.client.fetch_page(&current_fetch_url).await?;
+            let parsed_page = Anime1Parser::parse_single_page(&html)?;
+
+            if playlist_title.is_empty() && !parsed_page.title.is_empty() {
+                playlist_title = parsed_page.title;
+            }
+
+            all_articles.extend(parsed_page.articles);
+
+            if let Some(next_url) = parsed_page.next_page_url {
+                current_fetch_url = next_url;
+            } else {
+                break;
+            }
+        }
+
+        if playlist_title.is_empty() {
+            playlist_title = "Anime Playlist".to_string();
+        }
+
+        let (playlist, payloads) = Anime1Parser::assemble_playlist(
+            &canonical_display,
+            &playlist_title,
+            all_articles,
+        )?;
 
         // Cache payloads internally
         {

@@ -87,6 +87,53 @@ impl SourceUrl {
             false
         }
     }
+
+    /// Produces a canonical SourceUrl by stripping pagination (/page/\d+/, ?page=N, ?paged=N)
+    /// and standardizing category path trailing slashes.
+    pub fn to_canonical(&self) -> Self {
+        let mut canonical = self.inner.clone();
+
+        // 1. Normalize path: remove /page/\d+
+        let path = canonical.path().to_string();
+        let trimmed_path = path.trim_end_matches('/');
+
+        let new_path = if let Some(idx) = trimmed_path.rfind("/page/") {
+            let suffix = &trimmed_path[idx + 6..];
+            if !suffix.is_empty() && suffix.chars().all(|c| c.is_ascii_digit()) {
+                let base = &trimmed_path[..idx];
+                format!("{}/", base)
+            } else if trimmed_path.starts_with("/category/") && !path.ends_with('/') {
+                format!("{}/", trimmed_path)
+            } else {
+                path
+            }
+        } else if trimmed_path.starts_with("/category/") && !path.ends_with('/') {
+            format!("{}/", trimmed_path)
+        } else {
+            path
+        };
+        canonical.set_path(&new_path);
+
+        // 2. Normalize query params (strip page / paged pagination parameters)
+        if let Some(query) = canonical.query() {
+            let filtered: Vec<(String, String)> = url::form_urlencoded::parse(query.as_bytes())
+                .filter(|(k, _)| k != "page" && k != "paged")
+                .map(|(k, v)| (k.into_owned(), v.into_owned()))
+                .collect();
+
+            if filtered.is_empty() {
+                canonical.set_query(None);
+            } else {
+                let mut serializer = url::form_urlencoded::Serializer::new(String::new());
+                for (k, v) in filtered {
+                    serializer.append_pair(&k, &v);
+                }
+                canonical.set_query(Some(&serializer.finish()));
+            }
+        }
+
+        Self { inner: canonical }
+    }
 }
 
 impl fmt::Display for SourceUrl {
@@ -141,5 +188,32 @@ mod tests {
         let source_url = SourceUrl::parse(input).expect("Should parse");
         assert_eq!(source_url.to_display_string(), "https://anime1.me/category/2026年春季/");
         assert_eq!(source_url.host_str(), Some("anime1.me"));
+    }
+
+    #[test]
+    fn test_to_canonical_removes_page_suffix() {
+        // Test with /page/2
+        let input1 = "https://anime1.me/category/2025%e5%b9%b4%e5%86%ac%e5%ad%a3/%e8%97%a5%e5%b8%ab%e5%b0%91%e5%a5%b3%e7%9a%84%e7%8d%a8%e8%aa%9e-%e7%ac%ac%e4%ba%8c%e5%ad%a3/page/2";
+        let u1 = SourceUrl::parse(input1).expect("Should parse");
+        let c1 = u1.to_canonical();
+        assert_eq!(
+            c1.to_display_string(),
+            "https://anime1.me/category/2025年冬季/藥師少女的獨語-第二季/"
+        );
+
+        // Test with /page/2/
+        let input2 = "https://anime1.me/category/2025%e5%b9%b4%e5%86%ac%e5%ad%a3/%e8%97%a5%e5%b8%ab%e5%b0%91%e5%a5%b3%e7%9a%84%e7%8d%a8%e8%aa%9e-%e7%ac%ac%e4%ba%8c%e5%ad%a3/page/2/";
+        let u2 = SourceUrl::parse(input2).expect("Should parse");
+        assert_eq!(u2.to_canonical().to_display_string(), c1.to_display_string());
+
+        // Test without /page/ and without trailing slash -> standardized with trailing slash for category
+        let input3 = "https://anime1.me/category/2025%e5%b9%b4%e5%86%ac%e5%ad%a3/%e8%97%a5%e5%b8%ab%e5%b0%91%e5%a5%b3%e7%9a%84%e7%8d%a8%e8%aa%9e-%e7%ac%ac%e4%ba%8c%e5%ad%a3";
+        let u3 = SourceUrl::parse(input3).expect("Should parse");
+        assert_eq!(u3.to_canonical().to_display_string(), c1.to_display_string());
+
+        // Test query param page removal
+        let input4 = "https://anime1.me/?s=%E8%97%A5%E5%B8%AB&page=2";
+        let u4 = SourceUrl::parse(input4).expect("Should parse");
+        assert_eq!(u4.to_canonical().to_display_string(), "https://anime1.me/?s=藥師");
     }
 }
