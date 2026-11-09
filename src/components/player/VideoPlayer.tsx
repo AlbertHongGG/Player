@@ -44,8 +44,8 @@ export const VideoPlayer: React.FC = () => {
   // Attach global keyboard shortcuts
   useVideoHotkeys({ videoRef, playerWrapperRef });
 
-  // Attach background playback progress tracking (throttled interval, pause, seek, beforeunload)
-  usePlaybackTracker({ videoRef });
+  // Attach background playback progress tracking (declarative handlers for pause, seek, throttled update, unload)
+  const tracker = usePlaybackTracker({ videoRef });
 
   // Handle seeking
   useEffect(() => {
@@ -85,9 +85,15 @@ export const VideoPlayer: React.FC = () => {
   }, [playbackRate]);
 
   const handleTimeUpdate = () => {
-    if (videoRef.current) {
-      setCurrentTime(videoRef.current.currentTime);
-    }
+    tracker.onTimeUpdate();
+  };
+
+  const handlePause = () => {
+    tracker.onPause();
+  };
+
+  const handleSeeked = () => {
+    tracker.onSeeked();
   };
 
   const handleLoadedMetadata = () => {
@@ -103,6 +109,7 @@ export const VideoPlayer: React.FC = () => {
 
   const handleVideoEnded = async () => {
     setIsPlaying(false);
+    tracker.onEnded();
 
     // Auto-play next episode if enabled via centralized playlist dispatcher
     if (autoPlayNext) {
@@ -143,6 +150,8 @@ export const VideoPlayer: React.FC = () => {
               onTimeUpdate={handleTimeUpdate}
               onLoadedMetadata={handleLoadedMetadata}
               onEnded={handleVideoEnded}
+              onPause={handlePause}
+              onSeeked={handleSeeked}
               onClick={togglePlay}
               onDoubleClick={toggleFullscreen}
               preload="auto"

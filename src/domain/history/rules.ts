@@ -1,6 +1,6 @@
 import type { EpisodeProgressRecord } from "./types.ts";
 
-export const MIN_RECORD_SECONDS = 15;
+export const MIN_RECORD_SECONDS = 2;
 export const COMPLETION_RATIO = 0.90;
 export const REMAINING_THRESHOLD_SECONDS = 30;
 export const MAX_HISTORY_ENTRIES = 100;
@@ -21,7 +21,9 @@ export function calculateProgress(
 
   let percentage = 0;
   if (safeDur > 0) {
-    percentage = Math.min(100, Math.max(0, Math.round((safePos / safeDur) * 100)));
+    const rawPct = Math.round((safePos / safeDur) * 100);
+    // If the user has started watching (> 0s), guarantee at least 1% unless truly at 0s
+    percentage = safePos > 0 ? Math.max(1, Math.min(100, rawPct)) : 0;
   }
 
   let isCompleted = false;
@@ -48,7 +50,7 @@ export function calculateProgress(
 }
 
 /**
- * Returns valid resume time in seconds, or null if ignored (< 15s) or completed.
+ * Returns valid resume time in seconds, or null if under threshold (< 2s) or completed.
  */
 export function getResumeTime(record?: EpisodeProgressRecord | null): number | null {
   if (!record) return null;

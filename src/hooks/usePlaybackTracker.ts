@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { useVideoStore } from "../store/videoStore.ts";
 import { usePlaylistStore, selectCurrentEpisode } from "../store/playlistStore.ts";
 import { useHistoryStore } from "../store/historyStore.ts";
@@ -10,88 +10,85 @@ interface UsePlaybackTrackerProps {
   videoRef: React.RefObject<HTMLVideoElement | null>;
 }
 
-export function usePlaybackTracker({ videoRef }: UsePlaybackTrackerProps) {
+export interface PlaybackTrackerHandlers {
+  onPause: () => void;
+  onSeeked: () => void;
+  onEnded: () => void;
+  onTimeUpdate: () => void;
+  saveNow: () => void;
+}
+
+export function usePlaybackTracker({ videoRef }: UsePlaybackTrackerProps): PlaybackTrackerHandlers {
   const lastSaveTimeRef = useRef<number>(0);
-  const { isPlaying } = useVideoStore();
-  const playlist = usePlaylistStore((s) => s.playlist);
-  const selectedEpisodeId = usePlaylistStore((s) => s.selectedEpisodeId);
+  const { setCurrentTime } = useVideoStore();
 
-  const saveCurrentProgress = () => {
+  const saveCurrentProgress = useCallback(
+    (explicitPos?: number, explicitDur?: number) => {
+      const video = videoRef.current;
+      const playlist = usePlaylistStore.getState().playlist;
+      const selectedEpisodeId = usePlaylistStore.getState().selectedEpisodeId;
+      if (!video || !playlist || !selectedEpisodeId) return;
+
+      const currentEp = selectCurrentEpisode(usePlaylistStore.getState());
+      if (!currentEp) return;
+
+      const currentTime = explicitPos !== undefined ? explicitPos : video.currentTime;
+      const duration = explicitDur !== undefined ? explicitDur : video.duration;
+      if (isNaN(duration) || duration <= 0) return;
+
+      const canonicalUrl = PlayableUrl.parse(playlist.url).wireUrl;
+      useHistoryStore.getState().updateProgress(
+        canonicalUrl,
+        currentEp.id,
+        currentEp.title,
+        currentTime,
+        duration
+      );
+      lastSaveTimeRef.current = Date.now();
+    },
+    [videoRef]
+  );
+
+  const onPause = useCallback(() => {
     const video = videoRef.current;
-    if (!video || !playlist || !selectedEpisodeId) return;
+    if (video) {
+      saveCurrentProgress(video.currentTime, video.duration);
+    }
+  }, [videoRef, saveCurrentProgress]);
 
-    const currentEp = selectCurrentEpisode(usePlaylistStore.getState());
-    if (!currentEp) return;
+  const onSeeked = useCallback(() => {
+    const video = videoRef.current;
+    if (video) {
+      saveCurrentProgress(video.currentTime, video.duration);
+    }
+  }, [videoRef, saveCurrentProgress]);
 
-    const currentTime = video.currentTime;
-    const duration = video.duration;
-    if (isNaN(duration) || duration <= 0) return;
+  const onEnded = useCallback(() => {
+    const video = videoRef.current;
+    if (video) {
+      saveCurrentProgress(video.duration, video.duration);
+    }
+  }, [videoRef, saveCurrentProgress]);
 
-    const canonicalUrl = PlayableUrl.parse(playlist.url).wireUrl;
-    useHistoryStore.getState().updateProgress(
-      canonicalUrl,
-      currentEp.id,
-      currentEp.title,
-      currentTime,
-      duration
-    );
-    lastSaveTimeRef.current = Date.now();
-  };
-
-  // 1. Throttled interval during active playback
-  useEffect(() => {
-    if (!isPlaying) return;
-
-    const interval = setInterval(() => {
-      saveCurrentProgress();
-    }, THROTTLE_INTERVAL_MS);
-
-    return () => clearInterval(interval);
-  }, [isPlaying, playlist, selectedEpisodeId]);
-
-  // 2. Event listeners on video element: pause, seeked, ended
-  useEffect(() => {
+  const onTimeUpdate = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
+    setCurrentTime(video.currentTime);
 
-    const handlePause = () => {
-      saveCurrentProgress();
-    };
+    // Throttled save every 5 seconds during active playback
+    const now = Date.now();
+    if (now - lastSaveTimeRef.current >= THROTTLE_INTERVAL_MS) {
+      saveCurrentProgress(video.currentTime, video.duration);
+    }
+  }, [videoRef, setCurrentTime, saveCurrentProgress]);
 
-    const handleSeeked = () => {
-      saveCurrentProgress();
-    };
-
-    const handleEnded = () => {
-      const currentEp = selectCurrentEpisode(usePlaylistStore.getState());
-      if (currentEp && playlist) {
-        const canonicalUrl = PlayableUrl.parse(playlist.url).wireUrl;
-        const duration = video.duration || 0;
-        useHistoryStore.getState().updateProgress(
-          canonicalUrl,
-          currentEp.id,
-          currentEp.title,
-          duration,
-          duration
-        );
-      }
-    };
-
-    video.addEventListener("pause", handlePause);
-    video.addEventListener("seeked", handleSeeked);
-    video.addEventListener("ended", handleEnded);
-
-    return () => {
-      video.removeEventListener("pause", handlePause);
-      video.removeEventListener("seeked", handleSeeked);
-      video.removeEventListener("ended", handleEnded);
-    };
-  }, [videoRef, playlist, selectedEpisodeId]);
-
-  // 3. Window unload / visibilitychange safety flush
+  // Window unload / visibilitychange safety flush
   useEffect(() => {
     const handleUnloadOrHide = () => {
-      saveCurrentProgress();
+      const video = videoRef.current;
+      if (video) {
+        saveCurrentProgress(video.currentTime, video.duration);
+      }
     };
 
     window.addEventListener("beforeunload", handleUnloadOrHide);
@@ -104,5 +101,13 @@ export function usePlaybackTracker({ videoRef }: UsePlaybackTrackerProps) {
     return () => {
       window.removeEventListener("beforeunload", handleUnloadOrHide);
     };
-  }, [playlist, selectedEpisodeId]);
+  }, [videoRef, saveCurrentProgress]);
+
+  return {
+    onPause,
+    onSeeked,
+    onEnded,
+    onTimeUpdate,
+    saveNow: () => saveCurrentProgress(),
+  };
 }

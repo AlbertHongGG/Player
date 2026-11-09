@@ -79,10 +79,9 @@ export const HistoryItemCard: React.FC<HistoryItemCardProps> = React.memo(({
               <CheckCircle2 size={11} />
               <span>已完播</span>
             </span>
-          ) : percentage > 0 ? (
+          ) : lastProgress && lastProgress.position > 0 ? (
             <span className="text-gray-400 font-mono">
-              進度 {percentage}%
-              {lastProgress && ` (${formatTime(lastProgress.position)})`}
+              進度 {percentage}% ({formatTime(lastProgress.position)})
             </span>
           ) : (
             <span className="text-gray-500">未開始播放</span>
@@ -99,7 +98,15 @@ export const HistoryItemCard: React.FC<HistoryItemCardProps> = React.memo(({
             className={`h-full rounded-full transition-all duration-300 ${
               isCompleted ? "bg-emerald-500" : "bg-[#facc15]"
             }`}
-            style={{ width: `${isCompleted ? 100 : percentage}%` }}
+            style={{
+              width: `${
+                isCompleted
+                  ? 100
+                  : lastProgress && lastProgress.position > 0
+                  ? Math.max(2, percentage)
+                  : 0
+              }%`,
+            }}
           />
         </div>
       </div>

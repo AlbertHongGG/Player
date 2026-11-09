@@ -10,12 +10,19 @@ function assertEqual<T>(actual: T, expected: T, message?: string) {
 
 export function runHistoryDomainTests() {
   console.log("=== Testing calculateProgress & getResumeTime ===");
-  // 1. Initial short watch (< 15s) -> resumeTime is null
-  const shortWatch = calculateProgress("ep1", "第 01 話", 8, 1440);
+  // 1. Initial ultra-short watch (< 2s) -> resumeTime is null
+  const shortWatch = calculateProgress("ep1", "第 01 話", 1, 1440);
   assertEqual(shortWatch.percentage, 1);
   assertEqual(shortWatch.isCompleted, false);
   assertEqual(getResumeTime(shortWatch), null);
-  console.log("✔ < 15s watch is ignored for resume");
+  console.log("✔ < 2s watch is ignored for resume");
+
+  // 1.1 Short intentional pause (e.g. 3.49s as in user screenshot) -> valid resume position!
+  const userScreenshotPause = calculateProgress("ep1", "第 01 話", 3.49, 1440.03);
+  assertEqual(userScreenshotPause.percentage, 1);
+  assertEqual(userScreenshotPause.isCompleted, false);
+  assertEqual(getResumeTime(userScreenshotPause), 3.49);
+  console.log("✔ 3.49s intentional pause correctly captured with resume time");
 
   // 2. Active watch (> 15s, < 90%) -> resumeTime returns position
   const midWatch = calculateProgress("ep1", "第 01 話", 500, 1440);
