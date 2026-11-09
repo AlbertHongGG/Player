@@ -3,6 +3,7 @@ import type { Playlist, Episode } from "../types/bindings";
 import { commands } from "../types/bindings";
 import { useVideoStore } from "./videoStore";
 import { useNotifyStore } from "./notifyStore";
+import { PlayableUrl } from "../domain/url/PlayableUrl.ts";
 
 export type { Episode };
 
@@ -18,6 +19,7 @@ interface PlaylistStore {
   selectEpisode: (episodeId: string | null) => void;
   setIsParsing: (isParsing: boolean) => void;
   setError: (error: string | null) => void;
+  loadPlaylist: (url: PlayableUrl | string) => Promise<boolean>;
   playEpisode: (episode: Episode) => Promise<void>;
   playNextEpisode: () => Promise<boolean>;
 }
@@ -29,11 +31,56 @@ export const usePlaylistStore = create<PlaylistStore>((set, get) => ({
   isParsing: false,
   error: null,
 
-  setTargetUrl: (targetUrl) => set({ targetUrl }),
+  setTargetUrl: (targetUrl) => {
+    const clean = PlayableUrl.parse(targetUrl).displayUrl;
+    set({ targetUrl: clean });
+  },
   setPlaylist: (playlist) => set({ playlist, error: null }),
   selectEpisode: (selectedEpisodeId) => set({ selectedEpisodeId }),
   setIsParsing: (isParsing) => set({ isParsing }),
   setError: (error) => set({ error }),
+
+  loadPlaylist: async (url: PlayableUrl | string) => {
+    const playable = url instanceof PlayableUrl ? url : PlayableUrl.parse(url);
+    if (!playable.isValid && playable.isEmpty()) {
+      useNotifyStore.getState().show("Please enter an Anime1 URL", "warning");
+      return false;
+    }
+
+    set({ isParsing: true, error: null });
+    try {
+      // Wire URL ensures standard RFC-3986 format over IPC & network
+      const wire = playable.toWireString();
+      const res = await commands.parseUrl(wire);
+
+      if (res.status === "ok") {
+        set({
+          targetUrl: playable.displayUrl,
+          playlist: res.data,
+          isParsing: false,
+        });
+
+        useNotifyStore
+          .getState()
+          .show(`Loaded "${res.data.title}" (${res.data.episodes.length} episodes)`, "success");
+
+        if (res.data.episodes.length > 0) {
+          await get().playEpisode(res.data.episodes[0]);
+        }
+        return true;
+      } else {
+        set({ error: res.error, isParsing: false });
+        useNotifyStore.getState().show(`Failed to parse URL: ${res.error}`, "error");
+        return false;
+      }
+    } catch (e) {
+      const errStr = String(e);
+      set({ error: errStr, isParsing: false });
+      console.error("Parse URL error:", e);
+      useNotifyStore.getState().show(`Error parsing URL: ${errStr}`, "error");
+      return false;
+    }
+  },
 
   playEpisode: async (episode: Episode) => {
     set({ selectedEpisodeId: episode.id });

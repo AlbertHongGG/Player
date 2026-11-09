@@ -1,19 +1,17 @@
-import React, { useState, useRef } from "react";
+import React, { useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Search,
   Play,
-  Loader2,
   Film,
   Calendar,
-  Clipboard,
 } from "lucide-react";
 import { usePlaylistStore } from "../../store/playlistStore";
 import { useUiStore } from "../../store/uiStore";
 import { useNotifyStore } from "../../store/notifyStore";
-import { commands, Episode } from "../../types/bindings";
-import { Tooltip } from "../ui/Tooltip";
+import { Episode } from "../../types/bindings";
 import { formatDateTime } from "../../utils/time";
+import { CleanUrlInput, CleanUrlInputHandle } from "../common/CleanUrlInput";
+import { PlayableUrl } from "../../domain/url/PlayableUrl";
 
 export const PlaylistSidebar: React.FC = () => {
   const {
@@ -21,69 +19,21 @@ export const PlaylistSidebar: React.FC = () => {
     playlist,
     selectedEpisodeId,
     isParsing,
-    setTargetUrl,
-    setPlaylist,
-    setIsParsing,
+    loadPlaylist,
     playEpisode,
   } = usePlaylistStore();
 
   const { isSidebarOpen, isImmersive } = useUiStore();
   const { show } = useNotifyStore();
 
-  const [inputUrl, setInputUrl] = useState(targetUrl);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<CleanUrlInputHandle>(null);
 
   const handleFocusInput = () => {
     inputRef.current?.focus();
   };
 
-  const handlePasteFromClipboard = async () => {
-    try {
-      const text = await navigator.clipboard.readText();
-      const trimmed = text.trim();
-      if (trimmed.includes("anime1.me")) {
-        setInputUrl(trimmed);
-        show("Pasted Anime1 URL from clipboard", "success");
-      } else if (trimmed) {
-        setInputUrl(trimmed);
-        show("Pasted text from clipboard", "info");
-      } else {
-        show("Clipboard is empty", "warning");
-      }
-    } catch (err) {
-      console.warn("Clipboard read failed:", err);
-      show("Please allow clipboard permissions or paste manually", "warning");
-    }
-  };
-
-  const handleParse = async () => {
-    const trimmed = inputUrl.trim();
-    if (!trimmed) {
-      show("Please enter an Anime1 URL", "warning");
-      return;
-    }
-
-    setIsParsing(true);
-    try {
-      const result = await commands.parseUrl(trimmed);
-      if (result.status === "ok") {
-        setTargetUrl(trimmed);
-        setPlaylist(result.data);
-        show(`Loaded "${result.data.title}" (${result.data.episodes.length} episodes)`, "success");
-
-        // Automatically select and load the first episode if none selected
-        if (result.data.episodes.length > 0) {
-          handleSelectEpisode(result.data.episodes[0]);
-        }
-      } else {
-        show(`Failed to parse URL: ${result.error}`, "error");
-      }
-    } catch (e) {
-      console.error("Parse URL error:", e);
-      show(`Error parsing URL: ${e}`, "error");
-    } finally {
-      setIsParsing(false);
-    }
+  const handleLoadUrl = async (url: PlayableUrl) => {
+    await loadPlaylist(url);
   };
 
   const handleSelectEpisode = async (episode: Episode) => {
@@ -140,44 +90,13 @@ export const PlaylistSidebar: React.FC = () => {
               )}
             </div>
 
-            {/* Input & Load Bar */}
-            <div className="flex items-center gap-1 bg-[#1a1a1a] border border-white/10 rounded-xl p-1 focus-within:border-[#facc15]/50 focus-within:ring-1 focus-within:ring-[#facc15]/30 transition-all">
-              <input
-                ref={inputRef}
-                type="text"
-                value={inputUrl}
-                onChange={(e) => setInputUrl(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleParse();
-                }}
-                placeholder="Enter or paste Anime1 URL..."
-                className="w-full bg-transparent text-xs text-white placeholder-gray-500 px-2.5 py-1.5 focus:outline-none"
-              />
-
-              <Tooltip content="Paste from Clipboard" position="bottom">
-                <button
-                  type="button"
-                  onClick={handlePasteFromClipboard}
-                  className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-all shrink-0 cursor-pointer"
-                >
-                  <Clipboard size={13} />
-                </button>
-              </Tooltip>
-
-              <Tooltip content="Load Playlist" position="bottom">
-                <button
-                  onClick={handleParse}
-                  disabled={isParsing}
-                  className="w-7 h-7 flex items-center justify-center rounded-lg bg-[#facc15] hover:bg-white text-black transition-all disabled:opacity-50 shrink-0 cursor-pointer"
-                >
-                  {isParsing ? (
-                    <Loader2 size={13} className="animate-spin text-black" />
-                  ) : (
-                    <Search size={13} strokeWidth={2.5} />
-                  )}
-                </button>
-              </Tooltip>
-            </div>
+            {/* Clean URL Input & Load Bar */}
+            <CleanUrlInput
+              ref={inputRef}
+              value={targetUrl}
+              isLoading={isParsing}
+              onSubmit={handleLoadUrl}
+            />
           </div>
 
           {/* Episode List */}

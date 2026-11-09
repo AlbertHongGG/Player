@@ -9,6 +9,7 @@ use tokio::sync::RwLock;
 use crate::domain::episode::{Episode, Playlist, StreamSession};
 use crate::domain::errors::ProviderError;
 use crate::domain::provider::VideoSourceProvider;
+use crate::domain::url::SourceUrl;
 use self::parser::{Anime1Parser, Anime1Payload};
 use self::client::Anime1Client;
 
@@ -33,12 +34,17 @@ impl VideoSourceProvider for Anime1Provider {
     }
 
     fn can_handle(&self, url: &str) -> bool {
-        url.contains("anime1.me")
+        if let Ok(source_url) = SourceUrl::parse(url) {
+            source_url.matches_host("anime1.me")
+        } else {
+            url.contains("anime1.me")
+        }
     }
 
     async fn parse_playlist(&self, url: &str) -> Result<Playlist, ProviderError> {
-        let html = self.client.fetch_page(url).await?;
-        let (playlist, payloads) = Anime1Parser::parse_html(url, &html)?;
+        let source_url = SourceUrl::parse(url)?;
+        let html = self.client.fetch_page(source_url.as_str()).await?;
+        let (playlist, payloads) = Anime1Parser::parse_html(&source_url.to_display_string(), &html)?;
 
         // Cache payloads internally
         {
